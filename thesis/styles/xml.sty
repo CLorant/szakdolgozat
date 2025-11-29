@@ -1,0 +1,28 @@
+\usepackage{listings}
+\usepackage{color}
+\definecolor{gray}{rgb}{0.4,0.4,0.4}
+\definecolor{darkblue}{rgb}{0.0,0.0,0.6}
+\definecolor{lightblue}{rgb}{0.0,0.3,0.8}
+
+\lstset{
+  basicstyle=\ttfamily,
+  columns=fullflexible,
+  showstringspaces=false,
+  commentstyle=\color{gray}\upshape
+}
+
+\lstdefinelanguage{XML}{
+  morestring=[b]",
+  morestring=[s]{>}{<},
+  morecomment=[s]{<?}{?>},
+  stringstyle=\color{gray},
+  identifierstyle=\color{darkblue},
+  keywordstyle=\color{lightblue},
+  morekeywords={
+    xmlns,version,type,stroke,stroke-width,fill,
+    x1,y1,x2,y2,
+    x,y,width,height,rx,ry,
+    cx,cy,r,
+    points,d
+  }
+}
