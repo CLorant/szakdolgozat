@@ -1,0 +1,26 @@
+<svg width="101" height="101" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="gray" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#smallGrid)" />
+  
+  
+  <!--
+  <path d="M 20,80 A 20,20 0 0,1 80,20"
+  -->
+fill="none" stroke="blue" stroke-width="3"/>
+  <ellipse cx="50" cy="39" rx="25" ry="35" fill="none" stroke="black" stroke-dasharray="5 5"></ellipse>
+  <line x1="25" y1="39" x2="50" y2="39" fill="none" stroke="red"></line>
+  <line x1="50" y1="39" x2="50" y2="72" fill="none" stroke="red"></line>
+  <circle cx="50" cy="39" r="2" fill="black"></circle>
+  <text x="35" y="35" font-size="12">rx</text>
+   <text x="55" y="55" font-size="12">ry</text>
+  <path d="
+                M 5,50
+                L 25,50
+                A 29.5,50 0 0 0 75,50
+                L 95,50
+              " fill="none" stroke="blue" stroke-width="3"></path>
+</svg>

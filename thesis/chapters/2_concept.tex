@@ -1,8 +1,9 @@
 \Chapter{Az SVG és eszközkészlete}
 
+\label{sec:svg_graphical_elements}
 \section{Az SVG grafikus elemei}
 
-A Scalable Vector Graphics (SVG) egy XML-alapú nyelv, amely kétdimenziós vektorgrafikák leírására használatos. Hierarchikusan felépített, minden grafikus objektum egy közös gyökérelembe, az \lstinline[language=XML]|<svg>| tag közé ágyazódik. Ezt a szerkezetet szemlélteti az alábbi kódrészlet:
+A Scalable Vector Graphics (SVG) egy XML-alapú nyelv, mely kétdimenziós vektorgrafikák leírására használatos. Hierarchikusan felépített, minden grafikus objektum egy közös gyökérelembe, az \lstinline[language=XML]|<svg>| kezdő és záró címke közé ágyazódik. Ezt a szerkezetet szemlélteti az alábbi kódrészlet:
 
 \begin{lstlisting}[language=XML]
     <svg xmlns="http://www.w3.org/2000/svg"
@@ -13,25 +14,151 @@ A Scalable Vector Graphics (SVG) egy XML-alapú nyelv, amely kétdimenziós vekt
 
 Az SVG koordináta-rendszerének origója (0, 0) a bal felső sarokban található. A hagyományos matematikai ábrázolástól eltérően itt az y tengely pozitív iránya lefelé mutat.
 
+\paragraph{A \texttt{viewBox} attribútum}
+A teljes skálázhatóság és a reszponzív viselkedés kulcsa az \lstinline[language=XML]|<svg>| elem opcionális \lstinline[language=XML]|viewBox| attribútuma. Ez a nézetablak meghatároz egy új, független koordináta-rendszert a tartalom számára, amely automatikusan skálázódik a megadott \texttt{width} és \texttt{height} méretekhez. Ennek hiányában a koordináták közvetlenül a képernyő pixeleiben értendők. A \texttt{viewBox} értéke négy szám: \texttt{min-x}, \texttt{min-y}, \texttt{width} és \texttt{height}. Az alábbi példában a \texttt{viewBox} egy 0-tól 100-ig terjedő koordináta-rendszert határoz meg, és az SVG tartalma teljesen kitölti a 400$\times$400 pixeles tárolót.
+
+\begin{figure}[H]
+    \centering
+    \begin{adjustbox}{valign=m, max width=0.7\textwidth}
+        \begin{lstlisting}[language=XML]
+        <svg xmlns="http://www.w3.org/2000/svg"
+            width="400" height="400" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="40"
+                fill="lightgray" stroke="black" stroke-width="2"/>
+        </svg>
+        \end{lstlisting}
+    \end{adjustbox}
+    \hfill
+    \begin{adjustbox}{valign=m, max width=0.2\textwidth}
+        \includesvg{images/concept/viewbox.svg}
+    \end{adjustbox}
+    \caption{Példa: A viewBox attribútum hatása a koordinátarendszer skálázására}
+    \label{fig:example_viewbox}
+\end{figure}
+
+Ebben a fejezetben bemutatom az SVG gyakran használt elemeit, amiket a webalkalmazásban is implementálni fogok. Kezdve a megjelenési attribútumokkal(\ref{sub:vis_attrs}), melyek a későbbiekben bemutatott elemek vizuális megjelenését befolyásolják. Folytatva az alapvető alakzatokkal(\ref{sub:basic_shapes}), melyeket először az attribútumaik listázásával, majd egy kódpéldával és ábrával demonstrálok. Ez után az SVG specifikáció különböző görbéi, az útvonalak(\ref{sub:paths}) és további grafikus elemei(\ref{sub:other_elements}) kerülnek bemutatásra, hasonló formátumban. Végül ezen elemek csoportosítását és újrafelhasználását(\ref{sub:group_defs}) mutatom be két példán keresztül.
+
+\label{sub:vis_attrs}
+\subsection{Megjelenési attribútumok}
+
+Az SVG elemek geometriai meghatározása mellett a kinézetüket a megjelenési attribútumok\cite{mdn-svg-attributes} határozzák meg. Ezek az attribútumok CSS tulajdonságként is értelmezhetők, így megadhatók közvetlenül az elemen attribútumként, vagy CSS stíluslapokon keresztül is.
+
+\subsubsection{Körvonal}
+
+A körvonal az alakzatok határvonalát jelenti. Az SVG szabvány számos attribútumot biztosít a vonalak végződésének, csatlakozásának és mintázatának beállítására.
+
+\vspace{9pt}
+
+\textbf{stroke:} A körvonal színét határozza meg. Értéke lehet konkrét színkód, színnév, vagy hivatkozás egy színátmenetre. Alapértelmezett értéke none, vagyis a körvonal nem látható.
+
+\vspace{9pt}
+
+\textbf{stroke-width:} A körvonal vastagságát definiálja. Értéke egy pozitív szám, mely az aktuális koordináta-rendszer egységében értendő, alapértéke az 1.
+
+\vspace{9pt}
+
+\textbf{stroke-opacity}: A körvonal átlátszóságát szabályozza 0.0 (teljesen átlátszó) és 1.0 (teljesen látható) között. Ez független az elem többi részének átlátszóságától.
+
+\vspace{9pt}
+
+\textbf{stroke-linecap}: Nyílt útvonalak végpontjainak alakját határozza meg. Három lehetséges értéke van:
+\begin{itemize}
+    \item \texttt{butt:} A vonal pontosan a végpontnál ér véget, levágott véggel. Ez az alapértelmezett érték.
+    \item \texttt{round:} A vonal végét egy félkör zárja le, melynek sugara a vonalvastagság fele.
+    \item \texttt{square:} A vonal vége egy négyzetes lezárást kap, mely a vonalvastagság felével túlnyúlik a végponton.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includesvg[width=0.2\textwidth]{images/concept/stroke-linecap.svg}
+    \caption{Példa: A stroke-linecap attribútum három lehetséges értéke. }
+    \label{fig:example_stroke-linecap}
+\end{figure}
+
+\vspace{9pt}
+
+\textbf{stroke-linejoin}: Két vonalszakasz találkozásánál, vagyis sarkánál kialakuló alakzat típusát adja meg. Három lehetséges értéke van:
+
+\begin{itemize}
+    \item \texttt{miter:} Hegyes sarok, ahol a külső élek a metszéspontig meghosszabbodnak. Ez az alapértelmezett érték.
+    \item \texttt{round:} A sarok lekerekített.
+    \item \texttt{square:} Levágott sarok, mintha egy egyenes vonallal összekötnénk a két szakasz külső pontjait.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includesvg[width=0.2\textwidth]{images/concept/stroke-linejoin.svg}
+    \caption{Példa: A stroke-linejoin attribútum három lehetséges értéke. }
+    \label{fig:example_stroke-linejoin}
+\end{figure}
+
+\textbf{stroke-dasharray}: Szaggatott vonalak létrehozására szolgál. Értéke egy vesszővel vagy szóközzel elválasztott számsorozat, mely felváltva határozza meg a vonalszakaszok és a szünetek hosszát.
+
+\subsubsection{Kitöltés}
+
+A kitöltés az alakzatok belső területének színezését jelenti. Zárt alakzatoknál, mint például köröknél, egyértelmű a belső terület. Viszont nyílt útvonalaknál a végpontok összekötésével képzett területet jelöli.
+
+\vspace{9pt}
+
+\textbf{fill:} A belső terület színét határozza meg. Hasonlóan a stroke-hoz, lehet szín, átmenet vagy minta. Alapértelmezett értéke a fekete. A none érték használatával az alakzat belseje átlátszó marad.
+
+\vspace{9pt}
+
+\textbf{fill-opacity:} A kitöltés átlátszóságát állítja be, anélkül, hogy a körvonal átlátszóságát befolyásolná.
+
+\vspace{9pt}
+
+\textbf{fill-rule:} Önmagát metsző vagy lyukas útvonalak esetén határozza meg, hogy mely területek számítanak belülnek és melyek kívülnek.
+
+\begin{itemize}
+    \item \texttt{nonzero:} Ez az alapértelmezett szabály. Egy adott pontból húzott sugár és az útvonal metszéspontjainak irányát vizsgálja. Ez lehet óramutató járásával megegyező vagy ellentétes. Ha az összeg nem nulla, a pont belül van.
+    \item \texttt{evenodd:} Azt vizsgálja, hogy a sugár hányszor metszi az útvonalat. Ha a metszéspontok száma páratlan, a pont belül van. Ha ez a szám páros, akkor kívül van. Lehetővé teszi a lyukas alakzatok egyszerű létrehozását.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includesvg[width=0.2\textwidth]{images/concept/fill-rule.svg}
+    \caption{Példa: A fill-rule attribútum két lehetséges értéke. }
+    \label{fig:example_fill-rule}
+\end{figure}
+
+\subsubsection{Láthatóság}
+
+Az \texttt{opacity} attribútum az elem átlátszóságát szabályozza. Értéke a 0.0 és 1.0 közötti tartományban mozoghat, ahol a nulla a teljes átlátszóságot, az egy pedig a teljes láthatóságot jelöli. Fontos különbség a kitöltési és körvonal átlátszósághoz képest, hogy csoportokra alkalmazva az attribútum a benne foglalt elemek összesített átlátszóságát határozza meg, így a megjelenítéskor az elemek egységesen halványodnak el, nem pedig egymáson áttűnve.
+
+\subsubsection{Transzformációk}
+
+A \texttt{transform} attribútum segítségével végezhető el az elemek geometriai manipulációja az eredeti koordináta-rendszerhez viszonyítva. A \texttt{translate(x, y)} parancs az eltolást végzi az x és y tengelyek mentén. A \texttt{rotate(a, x, y)} adott \texttt{a} szöggel és egy tetszőleges \texttt{x, y} középpont körül forgatja el az elemet. A \texttt{scale(x, y)} az elem átméretezését  teszi lehetővé az \texttt{x, y} tengelyeken. Egy paraméter használatával, tehát \texttt{scale(s)} esetén \texttt{s} mennyiséggel egységesen skálázza az elemet.
+
+\subsubsection{Szűrők}
+A \texttt{filter} attribútum használata komplex vizuális effektek, például elmosás, árnyékvetés vagy színkorrekció alkalmazását teszi lehetővé. Az attribútum értéke jellemzően a definíciós szekcióban létrehozott szűrőelem egyedi azonosítójára hivatkozik, melyet az URL szintaxis segítségével kapcsolunk a grafikus elemhez.
+
+\subsubsection{Vágás}
+A \texttt{clip-path} egy specifikus SVG mechanizmus, mely a látható terület korlátozására szolgál. Egy SVG alakzat, például egy kör vagy vonal segítségével vágja le a megjelenítendő elemet. A definiált vágási területen kívül eső részek a megjelenítéskor nem láthatók.
+
+\subsubsection{Maszkolás}
+A maszkolás a vágáshoz hasonló technika, azonban itt a maszkoláshoz használt elem szürkeárnyalatos értékei határozzák meg az átlátszóság mértékét. A \texttt{mask} attribútummal használható. A fehér szín a teljes láthatóságot, a fekete a teljes átlátszóságot, a köztes szürke árnyalatok pedig félig áttetsző megjelenést eredményez.
+
+\label{sub:basic_shapes}
 \subsection{Alapvető alakzatok}
 
-Az SVG szabvány számos előre definiált alakzatot támogat \cite{mdn-svg-elements}, amelyek segítségével egyszerűen hozhatunk létre grafikai elemeket. 
+Az SVG szabvány számos előre definiált alakzatot\cite{mdn-svg-elements} támogat, melyek segítségével egyszerűen hozhatunk létre grafikai elemeket. 
 
 \subsubsection{Vonalak}
 
-A vonalakat a \lstinline[language=XML]|<line>| elem segítségével ábrázoljuk. A vonal meghatározásához négy alapvető attribútumot szükséges megadni, amelyek a kezdő- és végpont koordinátái.
+A vonalakat a \lstinline[language=XML]|<line>| elem segítségével ábrázoljuk. A vonal meghatározásához négy alapvető attribútumot szükséges megadni, melyek a kezdő- és végpont koordinátái.
 
 \begin{itemize}
     \item \texttt{x1, y1:} A kezdőpont koordinátái
     \item \texttt{x2, y2:} A végpont koordinátái
 \end{itemize}
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
     <line x1="10" y1="10" x2="90" y2="90"
-        stroke="black" stroke-width="2"/>
+        stroke="blue" stroke-width="2"/>
         \end{lstlisting}
     \end{adjustbox}
     \hfill
@@ -53,7 +180,7 @@ A téglalapok a \lstinline[language=XML]|<rect>| elemmel adhatók meg. Az alakza
     \item \texttt{rx, ry:} A sarkok negyed ellipszisének horizontális és vertikális sugara
 \end{itemize}
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -66,7 +193,7 @@ A téglalapok a \lstinline[language=XML]|<rect>| elemmel adhatók meg. Az alakza
     \begin{adjustbox}{valign=m, max width=0.2\textwidth}
         \includesvg{images/concept/rect.svg}
     \end{adjustbox}
-    \caption{Példa: Téglalap elem kódja és vizuális megjelenése}
+    \caption{Példa: Téglalap elem, opcionálisan lekerekített sarkakkal, kód és vizuális megjelenés.}
     \label{fig:example_rect}
 \end{figure}
 
@@ -80,7 +207,7 @@ A körök a \lstinline[language=XML]|<circle>| elemmel ábrázolhatók. Középp
     \item \texttt{r:} A kör sugara
 \end{itemize}
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -108,7 +235,7 @@ Az ellipszisek az \lstinline[language=XML]|<ellipse>| elemmel adhatók meg. A k�
     \item \texttt{rx, ry:} Az ellipszis horizontális és vertikális sugara
 \end{itemize}
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -128,9 +255,9 @@ Az ellipszisek az \lstinline[language=XML]|<ellipse>| elemmel adhatók meg. A k�
 
 \subsubsection{Poligonok}
 
-A \lstinline[language=XML]|<polygon>| elem egy tetszőleges számú éllel rendelkező, zárt alakzatot definiál. A poligon leírásához a \texttt{points} attribútum szükséges, amely tartalmazza az összes csúcspont x, y koordinátáját.
+A \lstinline[language=XML]|<polygon>| elem egy tetszőleges számú éllel rendelkező, zárt alakzatot definiál. A poligon leírásához a \texttt{points} attribútum szükséges. A bejárás sorrendjében, szóközzel elválasztva szükséges leírni az x,y koordináta páronkat. A leírás végeztével automatikusan összeköti a kezdő- és a végpontot, nem szükséges ismételten megadni a kiinduló pontot.
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -152,7 +279,7 @@ A \lstinline[language=XML]|<polygon>| elem egy tetszőleges számú éllel rende
 
 A polivonalak, vagyis töröttvonalak a \lstinline[language=XML]|<polyline>| elemmel definiálhatók. Hasonlóan a poligonokhoz csak a \texttt{points} attribútum szükséges a leírásához. Az eltérés csak az, hogy nem zárt alakzat.
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -169,10 +296,10 @@ A polivonalak, vagyis töröttvonalak a \lstinline[language=XML]|<polyline>| ele
     \label{fig:example_polyline}
 \end{figure}
 
-
+\label{sub:paths}
 \subsection{Útvonalak}
 
-Az SVG \lstinline[language=XML]|<path>| eleme a legrugalmasabb és legösszetettebb módja a vektoros alakzatok létrehozásának. Az útvonalak a \texttt{d} attribútum által definiált parancsok sorozatával írják le az alakzatot. Minden parancs egy betűből és a hozzá tartozó numerikus paraméterekből áll. A betű a parancs típusát jelöli. A parancsok abszolút és relatív kategóriákba sorolhatók. Az abszolút parancsok nagybetűvel jelöltek, a koordináta-rendszer origójához viszonyítanak. A relatív parancsok kisbetűsek, az aktuális ponttól számított elmozdulást jelentik.
+Az SVG \lstinline[language=XML]|<path>| eleme a legrugalmasabb és legösszetettebb módja a vektoros alakzatok létrehozásának. Az útvonalak a \texttt{d} attribútum által definiált parancsok sorozatával írják le az alakzatot. Minden parancs egy betűből és a hozzá tartozó numerikus paraméterekből áll. A betű a parancs típusát jelöli. A parancsok abszolút és relatív kategóriákba sorolhatók. Az abszolút parancsok nagybetűvel jelöltek, a koordináta-rendszer origójához viszonyítanak. A relatív parancsok kisbetűsek, az aktuális ponttól számított elmozdulást jelentik. A numerikus paraméterek lehetnek koordinátapárok, vagy például az ívek (\ref{sub:arc}) esetén jelenthetnek elforgási szöget, logikai paramétereket.
 
 
 \subsubsection{Egyenes vonalak}
@@ -187,13 +314,13 @@ Az egyenes vonalak rajzolásához több alapvető parancs is rendelkezésre áll
 \item \texttt{Z, z} (Close Path): Egyenes vonallal visszazár az útvonal kezdőpontjába
 \end{itemize}
 
-Az alábbi útvonal egy sokszöget rajzol, amely a (20,20) pontban kezdődik, és a \texttt{Z} paranccsal zárul vissza a kezdőponthoz.
+Az alábbi útvonal egy sokszöget rajzol, mely a (20,20) pontban kezdődik, és a \texttt{Z} paranccsal zárul vissza a kezdőponthoz.
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
-    <path d="M 20,20 L 80,20 L 80,80 L 20,80 Z" 
+    <path d="M 10,20 L 80,10 L 50,90 L 20,80 Z" 
         fill="lightgray" stroke="black" 
         stroke-width="2"/>
         \end{lstlisting}
@@ -209,13 +336,13 @@ Az alábbi útvonal egy sokszöget rajzol, amely a (20,20) pontban kezdődik, é
 
 \subsubsection{Bézier-görbék}
 
-A Bézier-görbék matematikai görbék, amelyek kontrollpontok segítségével definiálják a görbe alakját. Az SVG két típusú Bézier-görbét támogat.
+A Bézier-görbék\cite{mdn-bezier} matematikai görbék, melyek kontrollpontok segítségével definiálják a görbe alakját. Az SVG két típusú Bézier-görbét támogat.
 
 \subsubsection{Másodfokú Bézier-görbe}
 
 A másodfokú Bézier-görbe (Quadratic Bézier) a görbék legegyszerűbb változata. Egy kontrollpontja van, ami a görbe kezdetének és a végének az irányát befolyásolja. A \texttt{Q, q} paranccsal rajzolható.
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -236,11 +363,11 @@ A másodfokú Bézier-görbe (Quadratic Bézier) a görbék legegyszerűbb vált
 
 A harmadfokú Bézier-görbe (Cubic Bézier) két kontrollponttal rendelkezik. Az első a görbe kezdeténél, a második a görbe végénél határozza meg az irányt. A \texttt{C, c} paranccsal rajzolható.
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
-    <path d="M 90,90 Q 30,80 10,10" 
+    <path d="M 90,90 C 50,83 23,57 10,10" 
         fill="none" stroke="blue" 
         stroke-width="3"/>
         \end{lstlisting}
@@ -253,41 +380,100 @@ A harmadfokú Bézier-görbe (Cubic Bézier) két kontrollponttal rendelkezik. A
     \label{fig:example_path_cubic_bezier}
 \end{figure}
 
-
+\label{sub:arc}
 \subsubsection{Ív}
 
-Az \texttt{A, a} (Arc) parancs elliptikus ívek rajzolására szolgál. Ez az egyik legbonyolultabb útvonalparancs, mivel számos paramétert igényel:
+Az \texttt{A, a} (Arc) parancs elliptikus ívek rajzolására szolgál. Használata előtt szükséges egy adott kezdőpont, vagy annak meghatározása az \texttt{M, m} paranccsal. Ez az egyik legbonyolultabb útvonalparancs, mivel számos paramétert igényel:
 
 \begin{itemize}
 \item \texttt{rx, ry}: Az ellipszis x és y irányú sugara
 \item \texttt{x-axis-rotation}: Az ellipszis x tengelyének elforgatási szöge
-\item \texttt{large-arc-flag}: Meghatározza, hogy a rövidebb (0) vagy hosszabb (1) ívet rajzolja-e
-\item \texttt{sweep-flag}: Meghatározza, hogy pozitív (1) vagy negatív (0) irányban rajzolódik-e az ív
+\item \texttt{large-arc-flag}: Meghatározza, hogy a rövidebb (0, alapérték) vagy hosszabb (1) ívet rajzolja-e
+\item \texttt{sweep-flag}: Meghatározza, hogy pozitív (1, alapérték) vagy negatív (0) irányban rajzolódik-e az ív
 \item \texttt{x, y}: Az ív végpontjának koordinátái
 \end{itemize}
 
-\begin{figure}[!ht]
+Az alábbi ábrákon szemléltetem a paraméterek hatásait. A bal és jobb oldali egyenes vonalak nem részei az ívnek:
+
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
-        \begin{lstlisting}[language=XML]
-    <path d="M 20,80 A 20,20 0 0,1 80,20"
-        fill="none" stroke="blue" stroke-width="3"/>
+        \begin{lstlisting}[language=XML, escapeinside={!}{!}]
+    <path d="M 25,50
+        A !\textcolor{red}{29.5,50}! 0 0 0 75,50"
+        fill="none" stroke="blue" stroke-width="3">
+    </path>
         \end{lstlisting}
     \end{adjustbox}
     \hfill
     \begin{adjustbox}{valign=m, max width=0.2\textwidth}
-        \includesvg{images/concept/path-arc.svg}
+        \includesvg{images/concept/path-arc-radi.svg}
     \end{adjustbox}
-    \caption{Példa: Ív útvonal kódja és vizuális megjelenése}
-    \label{fig:example_arc}
+    \caption{Példa: Az ív rx és ry paramétereinek hatása. A kék ív a képzeletbeli ellipszis egy szakasza. A pirossal kiemelt vonalak a sugarakat jelölik.}
+    \label{fig:example_arc_radi}
 \end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{adjustbox}{valign=m, max width=0.8\textwidth}
+        \begin{lstlisting}[language=XML, escapeinside={!}{!}]
+    <path d="M 25,50
+        A 29.5,50 !\textcolor{red}{25}! 0 0 75,50"
+        fill="none" stroke="blue" stroke-width="3">
+    </path>
+        \end{lstlisting}
+    \end{adjustbox}
+    \hfill
+    \begin{adjustbox}{valign=m, max width=0.2\textwidth}
+        \includesvg{images/concept/path-arc-rot.svg}
+    \end{adjustbox}
+    \caption{Példa: Az ív x-axis-rotation paraméterének használata, kód és vizuális megjelenés}
+    \label{fig:example_arc_rot}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{adjustbox}{valign=m, max width=0.8\textwidth}
+        \begin{lstlisting}[language=XML, escapeinside={!}{!}]
+    <path d="M 25,50
+        A 29.5,50 25 !\textcolor{red}{1}! 0 75,50"
+        fill="none" stroke="blue" stroke-width="3">
+    </path>
+        \end{lstlisting}
+    \end{adjustbox}
+    \hfill
+    \begin{adjustbox}{valign=m, max width=0.2\textwidth}
+        \includesvg{images/concept/path-arc-large.svg}
+    \end{adjustbox}
+    \caption{Példa: Az ív large-arc-flag paraméterének használata, a szaggatott vonal jelzi az ívet a másik lehetséges érték esetén}
+    \label{fig:example_arc_large}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{adjustbox}{valign=m, max width=0.8\textwidth}
+        \begin{lstlisting}[language=XML, escapeinside={!}{!}]
+    <path d="M 25,50
+        A 29.5,50 25 0 !\textcolor{red}{1}! 75,50"
+        fill="none" stroke="blue" stroke-width="3">
+    </path>
+        \end{lstlisting}
+    \end{adjustbox}
+    \hfill
+    \begin{adjustbox}{valign=m, max width=0.2\textwidth}
+        \includesvg{images/concept/path-arc-sweep.svg}
+    \end{adjustbox}
+    \caption{Példa: Az ív sweep-flag paraméterének használata, a szaggatott vonal jelzi az ívet a másik lehetséges érték esetén}
+    \label{fig:example_arc_sweep}
+\end{figure}
+
 
 
 \subsubsection{Komplex útvonalak}
 
 Az egyenes szakaszok (\texttt{L, l}), Bézier-görbék (\texttt{Q, q, C, c}) és ívek (\texttt{A, a}) tetszőleges sorrendben kombinálhatók egyetlen \lstinline[language=XML]|<path>| elemen belül. Ez teszi lehetővé a komplex, szabálytalan alakzatok leírását.
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -303,6 +489,8 @@ Az egyenes szakaszok (\texttt{L, l}), Bézier-görbék (\texttt{Q, q, C, c}) és
     \label{fig:example_freehand}
 \end{figure}
 
+
+\label{sub:other_elements}
 \subsection{További grafikus elemek}
 
 A teljes körű vektorgrafikus ábra nem csak geometriai formákból áll, hanem gyakran tartalmaz szöveget és beágyazott képeket is. Az SVG szabvány ezeknek a hibrid elemeknek a kezelését is lehetővé teszi.
@@ -318,9 +506,9 @@ Az SVG a szöveges tartalmat vektorelemként kezeli, nem pedig egyszerű raszter
     \item \texttt{fill, stroke:} A szöveg kitöltő színe és körvonala
 \end{itemize}
 
-Viszont egyéb CSS tulajdonság is használható, például \texttt{font-family, font-size}, amelyek a betűtípust és a szöveg méretét határozzák meg. Az SVG szerkesztők a szövegeket általában \lstinline[language=XML]|<path>| elemekké alakítják.
+Viszont egyéb CSS tulajdonság is használható, például \texttt{font-family, font-size}, melyek a betűtípust és a szöveg méretét határozzák meg. Azonban a böngészőktől és rendszerektől függő betűtípus-besorolás kompatibilitási problémákat okozhat. Egy, a szerkesztőben megadott \texttt{font-family} érték más környezetben eltérő betűtípust aktiválhat, vagy akár a tartalmat megváltoztathatja. Ennélfogva az SVG szerkesztők a szövegeket általában \lstinline[language=XML]|<path>| elemekké alakítják.
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -353,7 +541,7 @@ Az \lstinline[language=XML]|<image>| elem teszi lehetővé raszteres fájlok, p�
 
 Az SVG szerkesztők a raszteres képeket általában \texttt{base64} formátumúvá alakítják. Majd ez a karakterlánc felhasznált a \texttt{href} attribútum értékeként.
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth}
         \begin{lstlisting}[language=XML]
@@ -365,98 +553,20 @@ Az SVG szerkesztők a raszteres képeket általában \texttt{base64} formátumú
     \begin{adjustbox}{valign=m, max width=0.2\textwidth}
         \includesvg{images/concept/image.svg}
     \end{adjustbox}
-    \caption{Példa: Kép kódja és vizuális megjelenése}
+    \caption{Példa: Külső kép használata, kód és vizuális megjelenés}
     \label{fig:example_img}
 \end{figure}
 
-\subsection{Prezentációs attribútumok}
 
-Az SVG elemek geometriai meghatározása mellett a vizuális megjelenésüket a prezentációs attribútumok \cite{mdn-svg-attributes} határozzák meg. Ezek az attribútumok CSS tulajdonságként is értelmezhetők, így megadhatók közvetlenül az elemen attribútumként, vagy CSS stíluslapokon keresztül is.
+\label{sub:group_defs}
+\subsection{Logikai csoportok és definiált elemek}
 
-\subsubsection{Körvonal}
-
-A körvonal az alakzatok határvonalát jelenti. Az SVG szabvány számos attribútumot biztosít a vonalak végződésének, csatlakozásának és mintázatának beállítására.
-
-\vspace{9pt}
-
-\textbf{stroke:} A körvonal színét határozza meg. Értéke lehet konkrét színkód, színnév, vagy hivatkozás egy színátmenetre. Alapértelmezett értéke none, vagyis a körvonal nem látható.
-
-\vspace{9pt}
-
-\textbf{stroke-width:} A körvonal vastagságát definiálja. Értéke egy pozitív szám, amely az aktuális koordináta-rendszer egységében értendő, alapértéke az 1.
-
-\vspace{9pt}
-
-\textbf{stroke-opacity}: A körvonal átlátszóságát szabályozza 0.0 (teljesen átlátszó) és 1.0 (teljesen látható) között. Ez független az elem többi részének átlátszóságától.
-
-\vspace{9pt}
-
-\textbf{stroke-linecap}: Nyílt útvonalak végpontjainak alakját határozza meg. Három lehetséges értéke van:
-\begin{itemize}
-    \item \texttt{butt:} A vonal pontosan a végpontnál ér véget, levágott véggel. Ez az alapértelmezett érték.
-    \item \texttt{round:} A vonal végét egy félkör zárja le, amelynek sugara a vonalvastagság fele.
-    \item \texttt{square:} A vonal vége egy négyzetes lezárást kap, amely a vonalvastagság felével túlnyúlik a végponton.
-\end{itemize}
-
-\vspace{9pt}
-
-\textbf{stroke-linejoin}: Két vonalszakasz találkozásánál, vagyis sarkánál kialakuló alakzat típusát adja meg. Három lehetséges értéke van:
-
-\begin{itemize}
-    \item \texttt{miter:} Hegyes sarok, ahol a külső élek a metszéspontig meghosszabbodnak. Ez az alapértelmezett érték.
-    \item \texttt{round:} A sarok lekerekített.
-    \item \texttt{square:} Levágott sarok, mintha egy egyenes vonallal összekötnénk a két szakasz külső pontjait.
-\end{itemize}
-
-\vspace{9pt}
-
-\textbf{stroke-dasharray}: Szaggatott vonalak létrehozására szolgál. Értéke egy vesszővel vagy szóközzel elválasztott számsorozat, amely felváltva határozza meg a vonalszakaszok és a szünetek hosszát.
-
-\subsubsection{Kitöltés}
-
-A kitöltés az alakzatok belső területének színezését jelenti. Zárt alakzatoknál, mint például köröknél, egyértelmű a belső terület. Viszont nyílt útvonalaknál a végpontok összekötésével képzett területet jelöli.
-
-\vspace{9pt}
-
-\textbf{fill:} A belső terület színét határozza meg. Hasonlóan a stroke-hoz, lehet szín, átmenet vagy minta. Alapértelmezett értéke a fekete. A none érték használatával az alakzat belseje átlátszó marad.
-
-\vspace{9pt}
-
-\textbf{fill-opacity:} A kitöltés átlátszóságát állítja be, anélkül, hogy a körvonal átlátszóságát befolyásolná.
-
-\vspace{9pt}
-
-\textbf{fill-rule:} Önmagát metsző vagy lyukas útvonalak esetén határozza meg, hogy mely területek számítanak "belülnek" és melyek "kívülnek". Két főbb értéke van:
-
-\begin{itemize}
-    \item \texttt{nonzero:} Ez az alapértelmezett szabály. Egy adott pontból húzott sugár és az útvonal metszéspontjainak irányát vizsgálja. Ez lehet óramutató járásával megegyező vagy ellentétes. Ha az összeg nem nulla, a pont belül van.
-    \item \texttt{evenodd:} Azt vizsgálja, hogy a sugár hányszor metszi az útvonalat. Ha a metszéspontok száma páratlan, a pont belül van. Ha ez a szám páros, akkor kívül van. Lehetővé teszi a lyukas alakzatok egyszerű létrehozását.
-\end{itemize}
-
-\subsubsection{Láthatóság}
-
-Az \texttt{opacity} attribútum az elem átlátszóságát szabályozza. Értéke a 0.0 és 1.0 közötti tartományban mozoghat, ahol a nulla a teljes átlátszóságot, az egy pedig a teljes láthatóságot jelöli. Fontos különbség a kitöltési és körvonal átlátszósághoz képest, hogy csoportokra alkalmazva az attribútum a benne foglalt elemek összesített átlátszóságát határozza meg, így a megjelenítéskor az elemek egységesen halványodnak el, nem pedig egymáson áttűnve.
-
-\subsubsection{Transzformációk}
-
-A \texttt{transform} attribútum segítségével végezhető el az elemek geometriai manipulációja az eredeti koordináta-rendszerhez viszonyítva. A \texttt{translate(x, y)} parancs az eltolást végzi az x és y tengelyek mentén. A \texttt{rotate(a, x, y)} adott \texttt{a} szöggel és egy tetszőleges \texttt{x, y} középpont körül forgatja el az elemet. A \texttt{scale(x, y)} az elem átméretezését  teszi lehetővé az \texttt{x, y} tengelyeken. Egy paraméter használatával, tehát \texttt{scale(s)} esetén \texttt{s} mennyiséggel egységesen skálázza az elemet.
-
-\subsubsection{Szűrők}
-A \texttt{filter} attribútum használata komplex vizuális effektek, például elmosás, árnyékvetés vagy színkorrekció alkalmazását teszi lehetővé. Az attribútum értéke jellemzően a definíciós szekcióban létrehozott szűrőelem egyedi azonosítójára hivatkozik, amelyet az URL szintaxis segítségével kapcsolunk a grafikus elemhez.
-
-\subsubsection{Vágás}
-A \texttt{clip-path} egy specifikus SVG mechanizmus, amely a látható terület korlátozására szolgál. Egy másik SVG alakzat, például egy kör vagy vonal segítségével vágja le a megjelenítendő elemet. A definiált vágási területen kívül eső részek a megjelenítéskor nem láthatók.
-
-\subsubsection{Maszkolás}
-A maszkolás a vágáshoz hasonló technika, azonban itt a maszkoláshoz használt elem szürkeárnyalatos értékei határozzák meg az átlátszóság mértékét. A \texttt{mask} attribútummal használható. A fehér szín a teljes láthatóságot, a fekete a teljes átlátszóságot, a köztes szürke árnyalatok pedig félig áttetsző megjelenést eredményez.
-
-\subsection{Csoportosítás és struktúra}
-
-Az SVG dokumentumok egyik legfontosabb szervezőeleme a \lstinline[language=XML]|<g>| (group) tárolóelem, amely logikailag és strukturálisan összefogja a benne elhelyezett objektumokat. Használata lehetővé teszi az összetartozó komponensek, például egy ikon részleteinek egyetlen egységként való kezelését. A csoportosítás befolyásolja a transzformációkat is. Az eltolás, forgatás vagy skálázás egységesen érvényesülnek minden a csoportban lévő elemre. Hasonlóan működik a megjelenési attribútumok esetén, a kitöltés vagy a körvonal stílusa automatikusan öröklődnek. Kivéve, ha azok saját beállítással felülírják azt.
+\subsubsection{Csoportosítás}
+Az SVG dokumentumok egyik legfontosabb szervezőeleme a \lstinline[language=XML]|<g>| (group)\cite{mdn-g} tárolóelem, mely logikailag és strukturálisan összefogja a benne elhelyezett objektumokat. Használata lehetővé teszi az összetartozó komponensek, például egy ikon részleteinek egyetlen egységként való kezelését. A csoportosítás befolyásolja a transzformációkat is. Az eltolás, forgatás vagy skálázás egységesen érvényesülnek minden a csoportban lévő elemre. Hasonlóan működik a megjelenési attribútumok esetén, a kitöltés vagy a körvonal stílusa automatikusan öröklődnek. Kivéve, ha azok saját beállítással felülírják azt.
 
 Az alábbi példában a csoport fekete körvonalat és egy eltolást definiál. A kör örökli a fekete körvonal színt, míg a téglalap felülírja azt saját kék színével, de az eltolás mindkettőre vonatkozik.
 
-\begin{figure}[!ht] \centering
+\begin{figure}[H] \centering
     \begin{adjustbox}{valign=m, max width=0.8\textwidth} 
         \begin{lstlisting}[language=XML]
         <g transform="translate(10,10)"
@@ -474,37 +584,65 @@ Az alábbi példában a csoport fekete körvonalat és egy eltolást definiál. 
     \label{fig:example_group}
 \end{figure}
 
+\subsubsection{Definiálás}
+A \lstinline[language=XML]|<defs>| elem\cite{mdn-defs} későbbi felhasználásra szánt grafikus objektumok tárolására szolgál. A tárolt objektumok nem jelennek meg közvetlenül, ehhez hivatkozni kell rájuk. Ennek egyik gyakori módja például a \lstinline[language=XML]|<use>| elem használata.
+
+A korábbi példákon látható rács is ezzel a módszerrel készült, így könnyen és egyértelműen elkülöníthető az ábra lényegi része, és egy újrahasznált elem. Az alábbi példában egy kör többszöri felhasználását mutatom be, a \lstinline[language=XML]|<defs>| között egyszer meghatározva, majd a \lstinline[language=XML]|<use>| elemmel háromszor megjelenítve, különböző helyeken.
+
+\begin{figure}[H] \centering
+    \begin{adjustbox}{valign=m, max width=0.8\textwidth} 
+        \begin{lstlisting}[language=XML]
+        <defs>
+            <circle id="grayCircle" r="15"
+            fill="lightgray" stroke="black"
+            stroke-width="2"/>
+        </defs>
+        
+        <use x="20" y="20" href="#grayCircle" />
+        <use x="50" y="50" href="#grayCircle" />
+        <use x="80" y="80" href="#grayCircle" />
+        \end{lstlisting}
+    \end{adjustbox}
+    \hfill
+    \begin{adjustbox}{valign=m, max width=0.2\textwidth}
+        \includesvg{images/concept/defs.svg}
+    \end{adjustbox}
+    \caption{Példa: Egy elem definiálása majd többszöri használata, kód és megjelenés}
+    \label{fig:example_defs}
+\end{figure}
+
+\label{sec:svg_editors}
 \section{Szerkesztőeszközök}
 
-Több SVG szerkesztő is elérhető, amelyek különböző célközönségeknek megfelelő funkcionalitást kínálnak. Egyes esetekben nagyon bő a funkcionalitások választéka, ami magas tanulási görbét eredményezhet. Más esetekben számos előre definiált alakzat áll rendelkezésre, viszont korlátozottak a grafikus szerkesztő eszközök. Az alábbiakban megismerkedhetünk néhány népszerű asztali és webes SVG szerkesztő alkalmazással. Kifejtésre kerülnek összehasonlító szempontok, amik kritériumok lesznek a saját szerkesztőm felé.
+Több SVG szerkesztő is elérhető, melyek különböző célközönségeknek megfelelő funkcionalitást kínálnak. Egyes esetekben nagyon bő a funkcionalitások választéka, ami magas tanulási görbét eredményezhet. Más esetekben számos előre definiált alakzat áll rendelkezésre, viszont korlátozottak a grafikus szerkesztő eszközök. Az alábbiakban megismerkedhetünk néhány népszerű webes és asztali SVG szerkesztő alkalmazással. Kifejtésre kerülnek összehasonlító szempontok, amik kritériumok lesznek a saját szerkesztőm felé.
 
 \subsection{Boxy SVG}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{images/concept/boxy-svg-interface.JPG}
-\caption{A Boxy SVG kezelőfelülete \cite{boxy-svg}}
+\includegraphics[height=0.4\textwidth]{images/concept/boxy-svg.JPG}
+\caption{A Boxy SVG kezelőfelülete\cite{boxy-svg}}
 \label{fig:boxy-svg}
 \end{figure}
 
-A Boxy SVG (\ref{fig:boxy-svg}. ábra) egy vektorgrafikus szerkesztő, amely elérhető webalkalmazásként és asztali alkalmazásként is. A szerkesztőfelület fejlécében egy menüsor van, amellyel elérhető a szerkesztő összes funkcionalitása. Alatta egy transzformációs sáv, amely gyors elérést ad alap csoportosítási, igazítási, forgatási és Boolean operációs eszközökhöz. Középen a rajzoló vászon jelenik meg, ezt körbevéve az úgynevezett vonalzók. Ezek pixelben mérve jelölik a vászon méretét, a kijelölt objektumok méretét és a kurzor pozicíját.
+A Boxy SVG (\ref{fig:boxy-svg}. ábra) egy freemium\cite{freemium} vektorgrafikus szerkesztő. A webalkalmazás alapvető grafikai szerkesztő- és exportálási funkciói elérhetők regisztráció vagy fizetés nélkül. Az asztali alkalmazások egy része és a haladó funkciók, mint az automatikus felhőszinkronizálás és a teljes verziótörténet, fizetős előfizetésekhez kötöttek. A szerkesztőfelület fejlécében egy menüsor van, amellyel elérhető a szerkesztő összes funkcionalitása. Alatta egy transzformációs sáv, mely gyors elérést ad alap csoportosítási, igazítási, forgatási és Boolean operációs eszközökhöz. Középen a rajzoló vászon jelenik meg, ezt körbevéve az úgynevezett vonalzók. Ezek pixelben mérve jelölik a vászon méretét, a kijelölt objektumok méretét és a kurzor pozicíját.
 
 Az SVG szabványban definiált alapelemeken túl ad lehetőséget gyakran használt alakzatok, mint háromszög vagy csillag rajzolására. Ezek beállításai egy bal oldali lebegő ablakban jelenik meg. A tulajdoságok a jobb oldali sávból érhetők el, egy kattintásra beúszó ablakban állíthatók be. Az alsó két gombbal elérhető a kódszerkesztő és az animációs panel, amik alulról úsznak be. A kódszerkesztőben módosítható az SVG egész forráskódja és az adott elem stílusozása is, a változtatás azonnal megjelenik.
 
 Teljeskörű szövegszerkesztésre ad lehetőséget, a legtöbb általános szöveg beállítás megadható. A szöveg in-place, tehát egyenesen a vásznon szerkeszthető. A színek és stílusok megadása széleskörű. Támogatja a lineáris és radiális gradiensek, valamint mintázatok létrehozását. A felhasználó előre definiált színkönyvtárakat is használhat. Az útvonalszerkesztés a szerkesztőeszközzel valósul meg, a csomópontoknál Bézier-fogantyúkkal manipulálható. Támogatja az unió, kivonás, metszet és komplementer logikai műveleteket az alakzatok között.
 
-Az elrendezést segédvonalak és rácshoz igazítás segíti, amely jelzi az objektumok egymáshoz viszonyított helyzetét. Van lehetőség külön réteg és csoport kezelésre, fa struktúrában látható a DOM hierarchia. Az elemek sorrendje drag-and-drop módszerrel módosítható. A kijelölés történhet kattintással vagy terület kijelöléssel, támogatva a csoportos műveleteket is. A rendszerszintű vágólap műveletek, mint a másolás és beillesztés, billentyűkombinációkkal is elérhetők. A nagyítás és navigáció az egérgörgővel és gesztusokkal intuitív módon működik. A visszavonási előzmények mélyrehatóak, számos lépés visszakereshető. A mentés automatikusan történik a felhőbe.
+Az elrendezést segédvonalak és rácshoz igazítás segíti, mely jelzi az objektumok egymáshoz viszonyított helyzetét. Van lehetőség külön réteg és csoport kezelésre, fa struktúrában látható a DOM hierarchia. Az elemek sorrendje drag-and-drop módszerrel módosítható. A kijelölés történhet kattintással vagy terület kijelöléssel, támogatva a csoportos műveleteket is. A rendszerszintű vágólap műveletek, mint a másolás és beillesztés, billentyűkombinációkkal is elérhetők. A nagyítás és navigáció az egérgörgővel és gesztusokkal intuitív módon működik. A visszavonási előzmények mélyrehatóak, számos lépés visszakereshető. A mentés automatikusan történik a felhőbe.
 
 \subsection{SVG-Edit}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{images/concept/svg-edit-interface.JPG}
-\caption{Az SVG-Edit kezelőfelülete \cite{svg-edit}}
+\includegraphics[height=0.4\textwidth]{images/concept/svg-edit.JPG}
+\caption{Az SVG-Edit kezelőfelülete\cite{svg-edit}}
 \label{fig:svg-edit}
 \end{figure}
 
-Az SVG-Edit (\ref{fig:svg-edit}. ábra) egy nyílt forráskódú, webalapú szerkesztő. A szerkesztő fejlécében lévő menüsor a fájl kezelésére, nézet beállítására és transzformációk beállítására szolgál.
+Az SVG-Edit (\ref{fig:svg-edit}. ábra) egy nyílt forráskódú, ingyenes webalapú szerkesztő. Használatához nincs szükség regisztrációra vagy előfizetésre. A szerkesztő fejlécében lévő menüsor a fájl kezelésére, nézet beállítására és transzformációk beállítására szolgál.
 
 Bal oldalon helyezkedik el az eszköztár kijelölő és rajzoló eszközökkel. Az alapelemek közül támogatja a szabványos alakzatokat, valamint rendelkezik egy beépített alakzat könyvtárral. A kiválasztott objektumok tulajdonságai, mint a kitöltés vagy körvonal, az alsó sávban módosíthatók. Egy dedikált gombbal megnyitható az SVG kódablak, ahol az XML szöveg szerkeszthető. A módosítások elfogadása után jelennek meg a változtatások a vásznon.
 
@@ -514,27 +652,27 @@ A szövegszerkesztés a vásznon történik, elég részletesen szabályozható 
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{images/concept/inkscape-interface.JPG}
-\caption{Az Inkscape kezelőfelülete \cite{inkscape}}
+\includegraphics[height=0.4\textwidth]{images/concept/inkscape.JPG}
+\caption{Az Inkscape kezelőfelülete\cite{inkscape}}
 \label{fig:inkscape}
 \end{figure}
 
-Az Inkscape (\ref{fig:inkscape}. ábra) egy professzionális, nyílt forráskódú asztali vektorgrafikus szerkesztő. Felülete rendkívül összetett, bal oldalon a részletes eszköztár, felül az eszközvezérlő sáv és a menüsor, jobb oldalon dokkolható párbeszédablakok, alul pedig a színpaletta és az állapotsor található.
+Az Inkscape (\ref{fig:inkscape}. ábra) egy ingyenes, nyílt forráskódú asztali vektorgrafikus szerkesztő. Felülete rendkívül összetett, bal oldalon a részletes eszköztár, felül az eszközvezérlő sáv és a menüsor, jobb oldalon dokkolható párbeszédablakok, alul pedig a színpaletta és az állapotsor található.
 
 Az alapelemek létrehozása mellett számos speciális alakzatot is támogat. A tulajdonságok numerikus beállítását dedikált panelek teszik lehetővé. A beépített XML szerkesztő fa-struktúrában jeleníti meg a DOM-ot, lehetőséget adva bármely attribútum valós idejű módosítására. A kód nemcsak olvasható, hanem teljes mértékben írható is, a változások megerősítés után érvényesülnek.
 
-A szövegszerkesztés nagyon részletes, támogatja a betűközök, sorközök és szöveg folyatását görbére illesztve. Dedikált szöveg szerkesztő ablak is tartozik hozzá, ha nem in-place szövegszerkesztést szeretnénk szöveget szerkeszteni. Színkezelése teljes körű, beleértve a CMYK, HSL és RGB színtereket, valamint a komplex gradienseket és mintázatokat. Az útvonalszerkesztés a szoftver egyik legnagyobb erőssége. A csomópont eszköz teljes testreszabhatóságot ad a Bézier-görbék felett. Támogatja a csomópontok típusának váltását és a logikai műveleteket. A rétegkezelés hierarchikus, van opció csoportosításra és rétegek zárolására. Rendelkezik automatikus mentési és helyreállítási funkcióval is.
+A szövegszerkesztés nagyon részletes, támogatja a betűközök, sorközök és szöveg folyatását görbére illesztve. Dedikált szöveg szerkesztő ablak is tartozik hozzá, ha nem in-place módon szeretnénk szöveget szerkeszteni. Színkezelése teljes körű, beleértve a CMYK, HSL és RGB színtereket, valamint a komplex gradienseket és mintázatokat. Az útvonalszerkesztés a szoftver egyik legnagyobb erőssége. A csomópont eszköz teljes testreszabhatóságot ad a Bézier-görbék felett. Támogatja a csomópontok típusának váltását és a logikai műveleteket. A rétegkezelés hierarchikus, van opció csoportosításra és rétegek zárolására. Rendelkezik automatikus mentési és helyreállítási funkcióval is.
 
 \subsection{Figma}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{images/concept/figma-interface.JPG}
-\caption{A Figma kezelőfelülete \cite{figma}}
+\includegraphics[height=0.4\textwidth]{images/concept/figma.JPG}
+\caption{A Figma kezelőfelülete\cite{figma}}
 \label{fig:figma}
 \end{figure}
 
-A Figma (\ref{fig:figma}. ábra) egy felülettervező eszköz, amely bár elsődlegesen UI/UX designra készült, erős vektorgrafikus képességekkel rendelkezik. Elrendezése minimalista, a bal oldali sáv a rétegeket és az eszközöket, a jobb oldali sáv a tulajdonságokat tartalmazza, míg a középső vászon a munkafelület.
+A Figma (\ref{fig:figma}. ábra) egy freemium felülettervező eszköz, mely bár elsődlegesen UI/UX designra készült, erős vektorgrafikus képességekkel rendelkezik. Az alapvető szerkesztői funkciók ingyenesen használhatók. A csapatmunkához szükséges prémium és vállalati szintű funkciók havi előfizetéses csomagokban érhetők el. Elrendezése minimalista, a bal oldali sáv a rétegeket és az eszközöket, a jobb oldali sáv a tulajdonságokat tartalmazza, míg a középső vászon a munkafelület.
 
 Az alapelemek egy legördülő menüből érhetők el, de nem túl bőséges a választék. A tulajdonságok szerkesztése a jobb oldali panelen történik, ahol az értékek gombokkal, csúszkákkal vagy numerikusan is megadhatók. Bár az SVG importálása és exportálása megbízhatóan működik, a felhasználó nem szerkesztheti közvetlenül az SVG struktúrát.
 
@@ -544,14 +682,14 @@ A szövegkezelés fejlett, támogatja a Google Fonts integrációt és a részle
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{images/concept/mediamodifier-interface.JPG}
-\caption{A Mediamodifier kezelőfelülete \cite{mediamodifier}}
+\includegraphics[height=0.4\textwidth]{images/concept/mediamodifier.JPG}
+\caption{A Mediamodifier kezelőfelülete\cite{mediamodifier}}
 \label{fig:mediamodifier}
 \end{figure}
 
-A Mediamodifier (\ref{fig:mediamodifier}. ábra) egy online marketingeszköz, amely a sablonok testreszabására és mockupok készítésére fókuszál. A felület egyszerűsített webes elrendezést követ. Bal oldalon található egy alapvető eszköz sáv, jobb oldalon a tulajdonság beállító panel, középen pedig a vászon.
+A Mediamodifier (\ref{fig:mediamodifier}. ábra) egy fizetős online marketingeszköz, mely korlátozott ingyenes szerkesztéssel rendelkezik, viszont a letöltéshez előfizetés szükséges. A felület egyszerűsített webes elrendezést követ. Bal oldalon található egy alapvető eszköz sáv, jobb oldalon a tulajdonság beállító panel, középen pedig a vászon.
 
-A szoftver nem a rajzolásra, hanem a kész elemek összeállítására helyezi a hangsúlyt. Tartalmaz alapvető alakzatokat, de ezek inkább matricaként működnek. A tulajdonságok szerkesztése korlátozott. A jobb oldali sávban csúszkákkal állítható az átlátszóság és körvonal méret. A forráskódhoz való hozzáférés teljes mértékben hiányzik, a felhasználó nem látja és nem módosíthatja az SVG struktúrát.
+A szoftver nem rajzolásra, hanem kész elemek összeállítására helyezi a hangsúlyt. Tartalmaz alapvető alakzatokat, de ezek inkább matricaként működnek. A tulajdonságok szerkesztése korlátozott. Az importálás csak alapvető alakzatok vagy görbék esetén működik megbízhatóan. A jobb oldali sávban csúszkákkal állítható az átlátszóság és körvonal méret. A forráskódhoz való hozzáférés teljes mértékben hiányzik, a felhasználó nem látja és nem módosíthatja az SVG struktúrát.
 
 A szövegszerkesztés in-place módon történik, de a formázási lehetőségek kimerülnek a betűtípus és szín választásában. A színkezelés egyszerű színválasztókkal működnek, az átlátszósághoz külön csúszka tartozik és HEX kódként kezeltek. Nincs lehetőség görbéket rajzolni és nincs útvonalszerkesztés. A rétegkezelés csupán az elemek sorrendjének előre vagy hátra állítását teszi lehetővé. A mentés manuális vagy fiókhoz kötött.
 
@@ -578,11 +716,11 @@ Az összehasonlítást az alábbi szempontok alapján végzem el:
     \item \textit{Nincs:} A szerkesztő teljesen elrejti a forráskódot.
 \end{itemize}
 
-\item[Szövegek szerkesztése:] Van-e lehetőség több soros, bekezdésés szöveg beszúrására, vagy csak egy sorba kerül. A szerkesztőnek biztosítania kell a betűtípus, méret, stílus és igazítás beállításait. A szöveg szerkesztése közvetlenül a vásznon \textit{"in-place"} történik-e. Alternatívan egy felugró ablakban vagy külön beviteli mezőben.
+\item[Szövegek szerkesztése:] Van-e lehetőség több soros, bekezdéses szöveg beszúrására, vagy csak egy sorba kerül. A szerkesztőnek biztosítania kell a betűtípus, méret, stílus és igazítás beállításait. A szöveg szerkesztése közvetlenül a vásznon \textit{"in-place"} történik-e. Alternatívan egy felugró ablakban vagy külön beviteli mezőben.
 
 \item[Színek és stílusok megadása:] Az SVG stílusozás és CSS kezelése.
 \begin{itemize}
-    \item A kitöltés és körvonal támogatja-e az RGB, HEX, HSL színmegadást, valamint az átlátszóságot.
+    \item A kitöltés és körvonal támogatja-e az RGB, HEX, HSL\cite{color-codes} színmegadást, valamint az átlátszóságot.
     \item Van-e lehetőség lineáris és radiális színátmenetek, illetve mintázatok létrehozására és szerkesztésére.
 \end{itemize}
 
@@ -593,7 +731,7 @@ Az összehasonlítást az alábbi szempontok alapján végzem el:
     \item Támogatja-e a logikai műveleteket, mint unió, különbség, metszet és komplementer az alakzatok között.
 \end{itemize}
 
-\item[Objektumok automatikus igazítása:] Rendelkezik-e a szerkesztő "mágneses" funkcióval, amely az objektumokat rácspontokhoz, más objektumok éleihez vagy középpontjához igazítja mozgatás közben.
+\item[Objektumok automatikus igazítása:] Rendelkezik-e a szerkesztő "mágneses" funkcióval, mely az objektumokat rácspontokhoz, más objektumok éleihez vagy középpontjához igazítja mozgatás közben.
 
 \item[Rétegek és csoportok kezelése:] Az SVG DOM struktúrájának kezelése. Van-e lehetőség elemek csoportosítására, illetve külön rétegek létrehozására. Fontos, hogy a szerkesztő vizuálisan megjelenítse a hierarchiát, és lehetővé tegye az elemek sorrendjének drag-and-drop módosítását.
 
@@ -608,7 +746,7 @@ Az összehasonlítást az alábbi szempontok alapján végzem el:
 \item[Automatikus mentés:] Webes alkalmazásoknál kritikus, hogy hálózati hiba vagy véletlen bezárás esetén megmarad-e a munka. A szerkesztő menti-e a böngésző helyi tárolójába (Local Storage) vagy felhőbe az állapotot.
 \end{description}
 
-\noindent Ezeket az összehasonlítási szempontokat tartalmazza a \ref{tab:svg-editors-comparison}. táblázat.
+\noindent Ezeket az összehasonlítási szempontokat tartalmazza a (\ref{tab:svg-editors-comparison}.) táblázat.
 
 \begin{table}[ht]
 \caption{Webes és asztali SVG szerkesztők funkcionális összehasonlítása}
