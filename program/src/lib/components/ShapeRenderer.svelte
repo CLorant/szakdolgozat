@@ -1,182 +1,117 @@
 <script lang="ts">
-  import type { Shape, ToolType } from '../utils/types';
+  /**
+   * @file Renders one shape as a <g data-shape-id>, so the browser's own hit-testing tells the tools what was clicked
+   * (right for curves, strokes, rotation and text). Thin or hollow shapes get an invisible wide-stroke copy, so they
+   * are easy to grab.
+   */
+  import type { Shape } from '../utils/types';
+  import { pathToD } from '../utils/path';
+  import { getLocalBounds, shapeTransform } from '../utils/shapes';
+  import { splitColor } from '../utils/serializer';
+  import { parseGradient, paintId } from '../utils/gradient';
+  import GradientDefs from './GradientDefs.svelte';
+  import { cssFontFamily, lineAdvance, fontEpoch, afterFonts } from '../utils/text';
 
-  export let shape:        Shape;
-  export let isTemp        = false;
-  export let isSelected    = false;
-  export let selectedTool: ToolType = 'transform';
-  export let zoom          = 1;
-  export let isEditing     = false;
+  export let shape: Shape;
+  export let zoom = 1;
+  /** Preview shape while drawing: half transparent, never hit-testable. */
+  export let isTemp = false;
+  /** Hidden while the in-canvas text editor is showing it. */
+  export let hidden = false;
+  /** Id of the text shape being edited in place (hidden at any depth). */
+  export let hiddenId: string | null = null;
+  /** Inside a locked group: not hit-testable either. */
+  export let lockedParent = false;
+  /** Locked shapes let every click through to what is under them (utils/types.ts: locked). */
+  $: inert = isTemp || lockedParent || !!shape.locked;
 
-  function pts(points: {x:number;y:number}[]) {
-    return points.map(p => `${p.x},${p.y}`).join(' ');
-  }
+  // A gradient paint is drawn through a <linearGradient>/<radialGradient> of its own (ids derive from the shape's id).
+  $: fillGrad   = parseGradient(shape.fill);
+  $: strokeGrad = parseGradient(shape.stroke);
+  $: fillId     = paintId(shape.id, 'fill');
+  $: strokeId   = paintId(shape.id, 'stroke');
+  $: fill   = fillGrad ? { hex: `url(#${fillId})`, opacity: 1 } : splitColor(shape.fill);
+  $: stroke = strokeGrad ? { hex: `url(#${strokeId})`, opacity: 1 } : splitColor(shape.stroke);
 
-  function splitColor(color: string): { hex: string; op: number } {
-    if (!color || color === 'none' || color === 'transparent') return { hex: color, op: 1 };
-    if (color.length === 9 && color.startsWith('#')) {
-      return {
-        hex: color.slice(0, 7),
-        op:  Math.round(parseInt(color.slice(7, 9), 16) / 255 * 1000) / 1000,
-      };
+  // re-measure text when a web font finishes loading
+  $: transform = afterFonts($fontEpoch, shapeTransform(shape));
+
+  $: paint = {
+    fill: fill.hex,
+    'fill-opacity': fill.opacity < 1 ? fill.opacity : undefined,
+    stroke: stroke.hex === 'none' || !shape.strokeWidth ? 'none' : stroke.hex,
+    'stroke-opacity': stroke.opacity < 1 ? stroke.opacity : undefined,
+    'stroke-width': shape.strokeWidth,
+    'stroke-linecap': shape.strokeLinecap,
+    'stroke-linejoin': shape.strokeLinejoin,
+    'stroke-dasharray': shape.strokeDasharray || undefined,
+    'stroke-dashoffset': shape.strokeDasharray && shape.strokeDashoffset ? shape.strokeDashoffset : undefined,
+    'fill-rule': shape.type === 'path' && shape.fillRule === 'evenodd' ? 'evenodd' : undefined,
+  } as Record<string, any>;
+
+  function geometry(s: Shape): { tag: string; attrs: Record<string, number | string> } | null {
+    switch (s.type) {
+      case 'line':      return { tag: 'line',    attrs: { x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 } };
+      case 'rectangle': return { tag: 'rect',    attrs: { x: s.x, y: s.y, width: s.width, height: s.height, rx: s.rx, ry: s.ry } };
+      case 'ellipse':   return { tag: 'ellipse', attrs: { cx: s.cx, cy: s.cy, rx: s.rx, ry: s.ry } };
+      case 'path':      return { tag: 'path',    attrs: { d: pathToD(s.nodes, s.closed) } };
+      case 'image':     return { tag: 'image',   attrs: { x: s.x, y: s.y, width: s.width, height: s.height, href: s.href, preserveAspectRatio: s.preserveAspectRatio ?? 'none' } };
+      default:          return null;
     }
-    return { hex: color, op: 1 };
   }
+  $: geo = geometry(shape);
 
-  $: opacity  = isTemp ? 0.5 : (shape.opacity ?? 1);
-  $: vis      = shape.visible === false ? 'none' : null;
+  // Shapes with no filled interior need a fat invisible stroke to be easy to click.
+  $: needsHitClone = !isTemp && !!geo && shape.type !== 'image' && (shape.type === 'line' || fill.hex === 'none' || (shape.type === 'path' && !shape.closed));
+  $: hitWidth = Math.max(shape.strokeWidth, 10 / zoom);
+  $: hitProps = {
+    fill: 'none', stroke: 'rgba(0,0,0,0)', 'stroke-width': hitWidth, 'pointer-events': 'stroke',
+  } as Record<string, any>;
 
-  $: fillSplit   = splitColor(shape.fill);
-  $: strokeSplit = splitColor(shape.stroke);
-  $: fillOp   = fillSplit.op;
-  $: strokeOp = strokeSplit.op;
-
-  $: linecap   = (shape as any).strokeLinecap   ?? 'round';
-  $: linejoin  = (shape as any).strokeLinejoin  ?? 'round';
-  $: dasharray = (shape as any).strokeDasharray ?? '';
-
-  $: rotTransform = shape.rotation
-    ? (() => {
-        switch (shape.type) {
-          case 'rectangle':
-            return `rotate(${shape.rotation} ${shape.x + shape.width/2} ${shape.y + shape.height/2})`;
-          case 'ellipse':
-            return `rotate(${shape.rotation} ${shape.cx} ${shape.cy})`;
-          case 'text':
-            // Rotation pivots around the text anchor point (x, y).
-            // Canvas.svelte getRotationOrigin must use the same point.
-            return `rotate(${shape.rotation} ${shape.x} ${shape.y})`;
-          case 'line':
-            return `rotate(${shape.rotation} ${(shape.x1 + shape.x2)/2} ${(shape.y1 + shape.y2)/2})`;
-          default: {
-            const s    = shape as any;
-            const raw  = s.points as Array<{x:number; y:number}> | undefined;
-            const used = shape.type === 'arc' ? raw?.slice(0, 2) : raw;
-            if (!used?.length) return '';
-            const xs = used.map((p:{x:number}) => p.x);
-            const ys = used.map((p:{y:number}) => p.y);
-            return `rotate(${shape.rotation} ${(Math.min(...xs)+Math.max(...xs))/2} ${(Math.min(...ys)+Math.max(...ys))/2})`;
-          }
-        }
-      })()
-    : '';
+  $: textBox = shape.type === 'text' ? afterFonts($fontEpoch, getLocalBounds(shape)) : null;
 </script>
 
-{#if shape.type === 'line'}
-  <line
-    x1={shape.x1} y1={shape.y1} x2={shape.x2} y2={shape.y2}
-    stroke={strokeSplit.hex} stroke-width={shape.strokeWidth}
-    stroke-opacity={strokeOp < 1 ? strokeOp : undefined}
-    stroke-linecap={linecap} stroke-dasharray={dasharray || undefined}
-    opacity={opacity} style:display={vis}
-    transform={rotTransform || undefined}
-  />
-
-{:else if shape.type === 'rectangle'}
-  <rect
-    x={shape.x} y={shape.y} width={shape.width} height={shape.height}
-    rx={shape.rx ?? 0} ry={shape.ry ?? 0}
-    fill={fillSplit.hex} fill-opacity={fillOp < 1 ? fillOp : undefined}
-    stroke={strokeSplit.hex} stroke-width={shape.strokeWidth}
-    stroke-opacity={strokeOp < 1 ? strokeOp : undefined}
-    stroke-linejoin={linejoin} stroke-dasharray={dasharray || undefined}
-    opacity={opacity} style:display={vis}
-    transform={rotTransform || undefined}
-  />
-
-{:else if shape.type === 'ellipse'}
-  <ellipse
-    cx={shape.cx} cy={shape.cy} rx={shape.rx} ry={shape.ry}
-    fill={fillSplit.hex} fill-opacity={fillOp < 1 ? fillOp : undefined}
-    stroke={strokeSplit.hex} stroke-width={shape.strokeWidth}
-    stroke-opacity={strokeOp < 1 ? strokeOp : undefined}
-    stroke-dasharray={dasharray || undefined}
-    opacity={opacity} style:display={vis}
-    transform={rotTransform || undefined}
-  />
-
-{:else if shape.type === 'polygon'}
-  {#if shape.closed === false}
-    <polyline
-      points={pts(shape.points)}
-      fill="none"
-      stroke={strokeSplit.hex} stroke-width={shape.strokeWidth}
-      stroke-opacity={strokeOp < 1 ? strokeOp : undefined}
-      stroke-linecap={linecap} stroke-linejoin={linejoin}
-      stroke-dasharray={dasharray || undefined}
-      opacity={opacity} style:display={vis}
-      transform={rotTransform || undefined}
-    />
-  {:else}
-    <polygon
-      points={pts(shape.points)}
-      fill={fillSplit.hex}
-      fill-opacity={fillOp < 1 ? fillOp : undefined}
-      stroke={strokeSplit.hex} stroke-width={shape.strokeWidth}
-      stroke-opacity={strokeOp < 1 ? strokeOp : undefined}
-      stroke-linejoin={linejoin} stroke-dasharray={dasharray || undefined}
-      opacity={opacity} style:display={vis}
-      transform={rotTransform || undefined}
-    />
-  {/if}
-
-{:else if shape.type === 'text'}
-  {#if !isEditing}
-    {@const deco = shape.textDecoration === 'underline' ? 'underline' : 'none'}
-    <text
-      x={shape.x} y={shape.y}
-      font-family={shape.fontFamily}
-      font-size={shape.fontSize}
-      font-weight={shape.fontWeight}
-      font-style={shape.fontStyle}
-      text-decoration={deco}
-      text-anchor={shape.textAnchor}
-      letter-spacing={shape.letterSpacing != null && shape.letterSpacing !== 0
-        ? shape.letterSpacing : undefined}
-      fill={fillSplit.hex}
-      fill-opacity={fillOp < 1 ? fillOp : undefined}
-      opacity={opacity} style:display={vis}
-      transform={rotTransform || undefined}
-    >
-      {#each (shape.content ?? '').split('\n') as line, i}
-        <tspan x={shape.x} dy={i === 0 ? 0 : shape.fontSize * 1.25}>{line}</tspan>
+{#if shape.visible && !hidden}
+  <g
+    data-shape-id={isTemp ? undefined : shape.id}
+    {transform}
+    opacity={isTemp ? 0.5 : shape.opacity !== 1 ? shape.opacity : undefined}
+    pointer-events={inert ? 'none' : undefined}
+  >
+    {#if shape.type === 'group'}
+      {#each shape.children as child (child.id)}
+        <svelte:self shape={child} {zoom} {isTemp} {hiddenId} hidden={hiddenId === child.id} lockedParent={inert && !isTemp} />
       {/each}
-    </text>
-
-    {#if isSelected && !(selectedTool === 'transform' || selectedTool === 'edit')}
-      {@const lines = (shape.content ?? '').split('\n')}
-      {@const maxLen = Math.max(...lines.map(l => l.length), 1)}
-      {@const bw = shape.fontSize * maxLen * 0.62 + 4/zoom}
-      {@const bh = shape.fontSize * 1.25 * lines.length + 4/zoom}
-      {@const bx = shape.textAnchor === 'end'    ? shape.x - bw + 2/zoom
-                 : shape.textAnchor === 'middle' ? shape.x - bw / 2 + 1/zoom
-                 : shape.x - 2/zoom}
-      {@const by = shape.y - shape.fontSize - 2/zoom}
-      <rect
-        x={bx} y={by}
-        width={bw} height={bh}
-        fill="none" stroke="#4A90D9" stroke-width={1.5/zoom}
-        stroke-dasharray="{5/zoom},{3/zoom}"
-        transform={rotTransform || undefined}
-        pointer-events="none"
-      />
+    {:else if geo}
+      {#if fillGrad || strokeGrad}
+        <defs>
+          {#if fillGrad}<GradientDefs gradient={fillGrad} id={fillId} />{/if}
+          {#if strokeGrad}<GradientDefs gradient={strokeGrad} id={strokeId} />{/if}
+        </defs>
+      {/if}
+      <svelte:element this={geo.tag} {...geo.attrs} {...(shape.type === 'image' ? {} : paint)} />
+      {#if needsHitClone && !inert}
+        <svelte:element this={geo.tag} {...geo.attrs} {...hitProps} />
+      {/if}
+    {:else if shape.type === 'text' && textBox}
+      {#if fillGrad}<defs><GradientDefs gradient={fillGrad} id={fillId} /></defs>{/if}
+      {#if !inert}
+        <rect x={textBox.x} y={textBox.y} width={textBox.width} height={textBox.height}
+          fill="rgba(0,0,0,0)" pointer-events="all" />
+      {/if}
+      <text
+        x={shape.x} y={shape.y}
+        font-family={cssFontFamily(shape.fontFamily)} font-size={shape.fontSize}
+        font-weight={shape.fontWeight} font-style={shape.fontStyle}
+        text-decoration={shape.textDecoration || undefined} text-anchor={shape.textAnchor}
+        letter-spacing={shape.letterSpacing || undefined} word-spacing={shape.wordSpacing || undefined}
+        fill={fill.hex} fill-opacity={fill.opacity < 1 ? fill.opacity : undefined}
+        style="white-space:pre" pointer-events="none"
+      >
+        {#each (shape.content ?? '').split('\n') as line, i}
+          <tspan x={shape.x} dy={i === 0 ? 0 : lineAdvance(shape)}>{line}</tspan>
+        {/each}
+      </text>
     {/if}
-  {/if}
-
-{:else}
-  <path
-    d={shape.pathData}
-    fill={fillSplit.hex} fill-opacity={fillOp < 1 ? fillOp : undefined}
-    stroke={strokeSplit.hex} stroke-width={shape.strokeWidth}
-    stroke-opacity={strokeOp < 1 ? strokeOp : undefined}
-    stroke-linecap={linecap} stroke-linejoin={linejoin}
-    stroke-dasharray={dasharray || undefined}
-    opacity={opacity} style:display={vis}
-    transform={rotTransform || undefined}
-  />
-  {#if isSelected && selectedTool !== 'transform' && selectedTool !== 'edit'}
-    <path d={shape.pathData}
-      fill="none" stroke="#4A90D9" stroke-width={shape.strokeWidth + 4} opacity="0.3"
-      pointer-events="none" />
-  {/if}
+  </g>
 {/if}

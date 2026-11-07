@@ -1,73 +1,54 @@
 <script lang="ts">
-  import { editorStore } from '../stores/editorStore';
-  import type { ToolType } from '../utils/types';
+  /**
+   * @file The drawing tools (lib/tools/catalog.ts) and the Shift lock. A tool's letter selects it.
+   */
+  import { get } from 'svelte/store';
+  import { ui, tool } from '../stores/ui';
+  import { textEdit } from '../stores/interaction';
+  import Icon from '../components/Icon.svelte';
+  import { TOOLS, toolForKey } from '../tools/catalog';
 
-  let selectedTool: ToolType = 'transform';
-  let showCurvePanel = false;
-
-  editorStore.subscribe(s => { selectedTool = s.selectedTool; });
-
-  const iconPath = 'src/assets/icons/';
-
-  const tools: Array<{ type: ToolType; label: string; icon: string; shortcut?: string }> = [
-    { type: 'transform', label: 'Transform',   icon: 'pointer', shortcut: 'V' },
-    { type: 'edit',      label: 'Edit Nodes',  icon: 'edit', shortcut: 'E' },
-    { type: 'line',      label: 'Line',        icon: 'line', shortcut: 'L' },
-    { type: 'freehand',  label: 'Freehand',    icon: 'freehand', shortcut: 'F' },
-    { type: 'curve',     label: 'Curve',       icon: 'placeholder', shortcut: 'B' },
-    { type: 'rectangle', label: 'Rectangle',   icon: 'square', shortcut: 'R' },
-    { type: 'ellipse',   label: 'Ellipse',     icon: 'circle', shortcut: 'O' },
-    { type: 'polygon',   label: 'Polygon',     icon: 'polygon', shortcut: 'P' },
-    { type: 'text',      label: 'Text',        icon: 'text', shortcut: 'T' },
-    { type: 'zoom',      label: 'Zoom',        icon: 'placeholder', shortcut: 'Z' },
-  ];
-
-  // Keyboard shortcuts
   function onKeyDown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    const map: Record<string, ToolType> = {
-      v:'transform', e:'edit', t:'text', l:'line', r:'rectangle',
-      o:'ellipse', p:'polygon', f:'freehand', b:'curve', z:'zoom'
-    };
-    const tool = map[e.key.toLowerCase()];
-    if (tool) editorStore.selectTool(tool);
+    // Letters (optionally with Shift) only: never while typing, while the text editor is open, or with Ctrl/Alt/Meta.
+    if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (get(textEdit)) return;
+    const next = e.key.length === 1 ? toolForKey(e.key, e.shiftKey) : undefined;
+    if (next) ui.selectTool(next);
   }
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
 
 <div class="svge-toolbar" role="toolbar" aria-label="Drawing tools">
-  {#each tools as t}
+  {#each TOOLS as t}
     <div class="svge-tool-wrap">
       <button
         class="svge-tool-btn"
-        class:active={selectedTool === t.type}
-        on:click={() => {
-          editorStore.selectTool(t.type);
-          if (t.type === 'curve') showCurvePanel = !showCurvePanel;
-          else showCurvePanel = false;
-        }}
-        title="{t.label}{t.shortcut ? ` [${t.shortcut}]` : ''}"
-        aria-pressed={selectedTool === t.type}
+        class:active={$tool === t.type}
+        on:click={() => ui.selectTool(t.type)}
+        title="{t.label} [{t.shortcut}]"
+        aria-pressed={$tool === t.type}
       >
-        <img
-			src="{iconPath + t.icon}.svg"
-			alt={t.label}
-			class="icon"
-			on:error={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-		/>
+        <Icon name={t.icon} alt={t.label} />
       </button>
-      <!-- Curve sub-tool badge -->
-      {#if t.type === 'curve' && selectedTool === 'curve'}
-        <span class="svge-curve-badge" title="Curve sub-tool active">•</span>
-      {/if}
     </div>
-
-    <!-- Separator after edit-nodes and text groups -->
-    {#if t.type === 'edit' || t.type === 'text' || t.type === 'freehand'}
+    {#if t.groupEnd}
       <div class="svge-sep"></div>
     {/if}
   {/each}
+  <div class="svge-sep"></div>
+  <!-- A virtual Shift key: squares / circles, 45° lines, proportional resize and adding to the selection
+       without a keyboard (touch screens). Also useful as a latch on desktop. -->
+  <button
+    class="svge-tool-btn svge-lock-btn"
+    class:active={$ui.shiftLock}
+    on:click={() => ui.set({ shiftLock: !$ui.shiftLock })}
+    title="Shift lock — constrain proportions and angles, add to selection"
+    aria-pressed={$ui.shiftLock}
+    aria-label="Shift lock"
+  >⇧</button>
 </div>
 
 <style>
@@ -109,15 +90,7 @@
     border-color: var(--tool-border-active);
   }
 
-  .svge-curve-badge {
-    position: absolute;
-    bottom: 2px;
-    right: 3px;
-    font-size: 0.65rem;
-    color: var(--tool-border-active);
-    pointer-events: none;
-  }
-
+    .svge-lock-btn { font-size: 1.15rem; color: var(--text-color); }
   .svge-sep {
     width: 28px;
     height: 1px;

@@ -1,11 +1,7 @@
 <script lang="ts">
   /**
-   * Composite slider + number input.
-   *
-   * Use the `onChange` callback prop instead of `on:change` — createEventDispatcher
-   * is deprecated in Svelte 5 and caused a TypeError when the panel first mounted
-   * because the CustomEvent detail was read before the reactive display values
-   * (opacity etc.) had initialised.
+   * @file A slider with a number field. Reports through the `onChange` callback prop, so the
+   * first value is never read before the parent has set it up.
    */
   export let value:    number   = 0;
   export let min:      number   = 0;
@@ -15,6 +11,14 @@
   export let numWidth: number   = 52;
   export let disabled: boolean  = false;
   export let onChange: ((v: number) => void) | undefined = undefined;
+  /** The slider's own range when it should be shorter than the field's (font size: slider 6–200, field 1–2000). */
+  export let sliderMin: number | undefined = undefined;
+  export let sliderMax: number | undefined = undefined;
+
+  import { onDestroy } from 'svelte';
+  // A focused field that disappears (the selection changed) may still report a change on its way out: ignored.
+  let alive = true;
+  onDestroy(() => { alive = false; });
 
   function clamp(v: number) { return Math.min(max, Math.max(min, v)); }
 
@@ -22,22 +26,34 @@
     value = parseFloat((e.target as HTMLInputElement).value);
     onChange?.(value);
   }
-  function onNum(e: Event) {
+  /** While typing: only values already inside the range are applied (no clamping under the caret). */
+  function onNumInput(e: Event) {
     const v = parseFloat((e.target as HTMLInputElement).value);
-    if (!isNaN(v)) { value = clamp(v); onChange?.(value); }
+    if (!isNaN(v) && v >= min && v <= max) { value = v; onChange?.(value); }
+  }
+  /** On blur / Enter: clamp whatever is left in the field. */
+  function onNum(e: Event) {
+    if (!alive) return;
+    const el = e.target as HTMLInputElement;
+    const v = parseFloat(el.value);
+    if (isNaN(v)) return;
+    const next = clamp(v);
+    el.value = String(next);
+    if (next !== value) { value = next; onChange?.(value); }   // typing already applied it: no second report on blur
   }
 </script>
 
 <div class="slider-input" class:disabled>
   <input
     type="range"
-    {min} {max} {step} {value} {disabled}
+    min={sliderMin ?? min} max={sliderMax ?? max} {step} {value} {disabled}
     on:input={onSlider}
     class="si-slider"
   />
   <input
     type="number"
     {min} {max} {step} {value} {disabled}
+    on:input={onNumInput}
     on:change={onNum}
     class="si-num"
     style="width:{numWidth}px"
@@ -56,7 +72,6 @@
   .si-slider {
     flex: 1;
     cursor: pointer;
-    accent-color: var(--accent-color);
     min-width: 0;
   }
   .si-num {

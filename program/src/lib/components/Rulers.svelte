@@ -1,98 +1,54 @@
 <script lang="ts">
+  /**
+   * @file Horizontal and vertical rulers in document units. Ticks are made for the range actually visible (view offset
+   * and zoom) with an adaptive step, so a ruler never goes blank and labels never overlap. Dragging out of a ruler
+   * places a guide.
+   */
   import { onMount } from 'svelte';
-  import { editorStore } from '../stores/editorStore';
+  import { viewport, cursor, CANVAS_PADDING } from '../stores/viewport';
+  import { rulerTicks } from '../utils/ruler';
+  import { startGuideDrag } from '../utils/guides';
 
-  export const RULER_SIZE = 20;
-  export let scrollLeft   = 0;
-  export let scrollTop    = 0;
-  export let paddingLeft  = 60;
-  export let paddingTop   = 60;
+  let hEl: HTMLElement, vEl: HTMLElement;
+  let hSize = 800, vSize = 600;
 
-  const STEP_CANVAS = 50;
-  const STEP_MAJOR  = 100;
+  $: zoom = $viewport.zoom;
+  $: hOrigin = CANVAS_PADDING - $viewport.scrollLeft;     // px (inside the ruler) of document x = 0
+  $: vOrigin = CANVAS_PADDING - $viewport.scrollTop;
+  $: hTicks = rulerTicks(-hOrigin / zoom, (hSize - hOrigin) / zoom, zoom);
+  $: vTicks = rulerTicks(-vOrigin / zoom, (vSize - vOrigin) / zoom, zoom);
 
-  let zoom = 1;
-  let cursorVX = 0, cursorVY = 0;
-  let hRulerEl: HTMLElement;
-  let vRulerEl: HTMLElement;
-  let hLeft = 0, vTop = 0;
-  let hWidth = 600, vHeight = 400;
-
-  editorStore.subscribe(s => {
-    zoom     = s.zoom;
-    cursorVX = s.cursor.x;
-    cursorVY = s.cursor.y;
-  });
-
-  // ── Tick arrays ──────────────────────────────────────────────────────────
-  $: hTicks = buildTicks(hWidth,  STEP_CANVAS, STEP_MAJOR, zoom);
-  $: vTicks = buildTicks(vHeight, STEP_CANVAS, STEP_MAJOR, zoom);
-
-  function buildTicks(size: number, step: number, major: number, z: number) {
-    const stepPx = step * z;
-    if (stepPx < 1) return [];
-    const count = Math.ceil(size / stepPx) + 2;
-    return Array.from({ length: count }, (_, i) => ({
-      pos:   i * stepPx,
-      label: (i * step) % major === 0 ? i * step : null,
-    }));
-  }
-
-  // ── Cursor line positions ─────────────────────────────────────────────────
-  $: cursorH = cursorVX - hLeft;
-  $: cursorV = cursorVY - vTop;
-
-  // ── Inner-div translation ─────────────────────────────────────────────────
-  $: translateH = paddingLeft - scrollLeft;
-  $: translateV = paddingTop  - scrollTop;
-
-  // ── Measure ruler element rects ───────────────────────────────────────────
-  function measure() {
-    if (hRulerEl) {
-      const r = hRulerEl.getBoundingClientRect();
-      hLeft  = r.left;
-      hWidth = r.width;
-    }
-    if (vRulerEl) {
-      const r = vRulerEl.getBoundingClientRect();
-      vTop    = r.top;
-      vHeight = r.height;
-    }
-  }
+  // Cursor position relative to each ruler (measured live: panels can move the rulers).
+  $: cursorH = $cursor.x - (hEl?.getBoundingClientRect().left ?? 0);
+  $: cursorV = $cursor.y - (vEl?.getBoundingClientRect().top ?? 0);
 
   onMount(() => {
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(document.body);
+    const ro = new ResizeObserver(() => {
+      hSize = hEl?.clientWidth ?? hSize;
+      vSize = vEl?.clientHeight ?? vSize;
+    });
+    ro.observe(hEl); ro.observe(vEl);
     return () => ro.disconnect();
   });
 </script>
 
-<!-- Horizontal ruler -->
-<div class="svge-ruler-h" bind:this={hRulerEl} aria-hidden="true">
-  <div class="svge-ruler-inner-h" style="transform: translateX({translateH - 20}px)">
-    {#each hTicks as tick}
-      <div class="svge-tick svge-tick-h" class:major={tick.label !== null} style="left:{tick.pos}px">
-        {#if tick.label !== null}
-          <span class="svge-rlabel svge-rlabel-h">{tick.label}</span>
-        {/if}
-      </div>
-    {/each}
-  </div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="svge-ruler-h" bind:this={hEl} aria-hidden="true" title="Drag down to place a guide" on:pointerdown={e => startGuideDrag(e, 'y')}>
+  {#each hTicks as t (t.value)}
+    <div class="svge-tick svge-tick-h" class:major={t.major} style="left:{hOrigin + t.pos}px">
+      {#if t.label !== null}<span class="svge-rlabel svge-rlabel-h">{t.label}</span>{/if}
+    </div>
+  {/each}
   <div class="svge-cursor-h" style="left:{cursorH}px"></div>
 </div>
 
-<!-- Vertical ruler -->
-<div class="svge-ruler-v" bind:this={vRulerEl} aria-hidden="true">
-  <div class="svge-ruler-inner-v" style="transform: translateY({translateV - 20}px)">
-    {#each vTicks as tick}
-      <div class="svge-tick svge-tick-v" class:major={tick.label !== null} style="top:{tick.pos}px">
-        {#if tick.label !== null}
-          <span class="svge-rlabel svge-rlabel-v">{tick.label}</span>
-        {/if}
-      </div>
-    {/each}
-  </div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="svge-ruler-v" bind:this={vEl} aria-hidden="true" title="Drag right to place a guide" on:pointerdown={e => startGuideDrag(e, 'x')}>
+  {#each vTicks as t (t.value)}
+    <div class="svge-tick svge-tick-v" class:major={t.major} style="top:{vOrigin + t.pos}px">
+      {#if t.label !== null}<span class="svge-rlabel svge-rlabel-v">{t.label}</span>{/if}
+    </div>
+  {/each}
   <div class="svge-cursor-v" style="top:{cursorV}px"></div>
 </div>
 
@@ -105,6 +61,8 @@
     flex-shrink: 0;
   }
 
+  .svge-ruler-h { cursor: row-resize; touch-action: none; }
+  .svge-ruler-v { cursor: col-resize; touch-action: none; }
   .svge-ruler-h {
     height: 20px;
     border-bottom: 1px solid var(--border-color);
@@ -115,13 +73,6 @@
     border-right: 1px solid var(--border-color);
   }
 
-  .svge-ruler-inner-h,
-  .svge-ruler-inner-v {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    will-change: transform;
-  }
 
   /* ── Ticks ───────────────────────────────────────────────────────────────── */
   .svge-tick { position: absolute; background: var(--ruler-text); }

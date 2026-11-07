@@ -1,3 +1,5 @@
+/* /src/app.css */
+
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
 	--bg-color:          #ffffff;
@@ -13,12 +15,12 @@
 	--close-btn-hover:   #c0392b;
 	--tool-active:       #deeeff;
 	--tool-border-active:#4A90D9;
-	--icon-filter:       none;
 
+	color-scheme: light;
 	font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
 	line-height: 1.5;
 	font-weight: 400;
-	font-size: 14px;
+	font-size: 16px;
 
 	color: var(--text-color);
 	background-color: var(--bg-color);
@@ -28,7 +30,17 @@
 	-moz-osx-font-smoothing: grayscale;
 }
 
+.theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
+	transition: none !important;
+}
+
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border-color) transparent;
+}
+
 [data-theme='dark'] {
+	color-scheme: dark;
 	--bg-color:          #1e1e1e;
 	--text-color:        #e8e8e8;
 	--border-color:      #3a3a3a;
@@ -37,12 +49,6 @@
 	--ruler-bg:          #252525;
 	--ruler-text:        #888888;
 	--tool-active:       #1a3450;
-	--tool-border-active:#4A90D9;
-	--icon-filter:       invert(0.85) brightness(1.1);
-}
-
-.icon {
-	filter: var(--icon-filter);
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
@@ -105,4 +111,66 @@ input, select, textarea {
 		linear-gradient(-45deg, transparent 75%, #363636 75%);
 	background-size: 16px 16px;
 	background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+/* Menu items: shared by the menu bar dropdowns (Menu.svelte) and the canvas context menu (ContextMenu.svelte). */
+.svge-dd-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.875rem;
+  border-radius: 0;
+  text-align: left;
+}
+
+.svge-dd-item:hover:not(:disabled) {
+  background: var(--tool-active);
+}
+.svge-dd-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.svge-dd-check {
+  gap: 8px;
+  justify-content: flex-start;
+}
+.svge-check {
+  width: 14px;
+  font-size: 0.8rem;
+  color: var(--tool-border-active);
+}
+
+.svge-dd-label {
+  padding: 6px 14px 2px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-color); opacity: 0.45; user-select: none;
+}
+.svge-dd-label small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.svge-dd-icons { display: flex; gap: 2px; padding: 2px 10px 4px; }
+.svge-dd-icon {
+  flex: 1; height: 26px; border: 1px solid transparent; border-radius: 4px; background: transparent;
+  color: var(--text-color); font-size: 0.9rem; cursor: pointer;
+}
+.svge-dd-icon:hover:not(:disabled) { background: var(--tool-active); }
+.svge-dd-icon:disabled { opacity: 0.35; cursor: not-allowed; }
+.svge-dd-with-icon { display: inline-flex; align-items: center; gap: 8px; }
+.kbd {
+  font-size: 0.7rem;
+  opacity: 0.4;
+  letter-spacing: 0.02em;
+  font-family: monospace;
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+.svge-dd-sep {
+  height: 1px;
+  background: var(--border-color);
+  margin: 3px 0;
 }

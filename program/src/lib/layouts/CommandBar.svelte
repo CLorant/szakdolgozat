@@ -1,302 +1,251 @@
 <script lang="ts">
-  import { editorStore } from '../stores/editorStore';
-  import { flipShape, getShapeBounds } from '../utils/bounds';
-  import { translateShape } from '../utils/geometry';
-  import FontPicker from '../components/FontPicker.svelte';
-  import type { ToolType, TextProps } from '../utils/types';
-
-  let selectedTool:     ToolType = 'transform';
-  let selectedShapeIds: string[] = [];
-  let zoom             = 1;
-  let canUndo          = false;
-  let canRedo          = false;
-  let shapes           = editorStore.getState().shapes;
-  let polygonClosed    = true;
-  let textProps        = editorStore.getState().textProps;
-  let curveSubTool     = editorStore.getState().curveSubTool;
-
-  editorStore.subscribe(s => {
-    selectedTool     = s.selectedTool;
-    selectedShapeIds = s.selectedShapeIds;
-    zoom             = s.zoom;
-    canUndo          = s.canUndo;
-    canRedo          = s.canRedo;
-    shapes           = s.shapes;
-    polygonClosed    = s.polygonClosed;
-    textProps        = s.textProps;
-    curveSubTool     = s.curveSubTool;
-  });
-
-  $: primaryId    = selectedShapeIds[0] ?? null;
-  $: primaryShape = primaryId ? shapes.find(s => s.id === primaryId) ?? null : null;
-
   /**
-   * FIX: When a text shape is selected, display its own formatting props in
-   * the command bar buttons rather than the global textProps defaults.
-   * This is why buttons appeared to update with a "delay" — they were showing
-   * a different source of truth than the selected shape.
+   * @file The context bar under the menu: undo / redo, zoom, and the controls of the active tool or selection.
    */
-  $: activeTextShape = (primaryShape?.type === 'text' ? primaryShape : null) as any;
-  $: displayTp = (activeTextShape ?? textProps) as TextProps;
+  import { ui, tool } from '../stores/ui';
+  import { editor, selectedShapes } from '../stores/editor';
+  import { canUndo, canRedo } from '../stores/document';
+  import { narrow } from '../stores/media';
+  import { ALIGN_ACTIONS, BOOLEAN_ACTIONS } from '../utils/actionLists';
+  import { viewport } from '../stores/viewport';
+  import { zoomBy, zoomTo, zoomFit } from '../utils/zoom';
+  import { normDeg } from '../utils/math';
+  import type { Shape, TextProps, TextShape } from '../utils/types';
+  import FontPicker from '../components/FontPicker.svelte';
+  import Icon from '../components/Icon.svelte';
+  import { decorationLines, toggleDecoration } from '../utils/text';
+  import { BOOLEAN_LABEL } from '../utils/boolean';
 
-  /** Update a text prop on both the global defaults and the selected shape. */
-  function setDisplayTp<K extends keyof TextProps>(key: K, value: TextProps[K]) {
-    editorStore.setTextProp(key, value);
-    if (activeTextShape) editorStore.updateShape(activeTextShape.id, { [key]: value } as any);
-  }
+  $: sel      = $selectedShapes;
+  $: single   = sel.length === 1 ? sel[0] : null;
+  $: zoom     = $viewport.zoom;
+  $: polygonClosed = $ui.polygonClosed;
 
-  // ── Rotation ──────────────────────────────────────────────────────────────
+  // The selected text shape's own props win over the global defaults (so buttons show the real state).
+  $: textShape = (single?.type === 'text' ? single : null) as TextShape | null;
+  $: tp = (textShape ?? $ui.textProps) as TextProps;
+
+  const num = (e: Event) => parseFloat((e.target as HTMLInputElement).value);
+
   function setRotation(deg: number) {
-    if (!primaryId) return;
-    editorStore.updateShape(primaryId, { rotation: ((deg % 360) + 360) % 360 } as any);
+    if (!single || Number.isNaN(deg)) return;
+    editor.updateShape(single.id, { rotation: normDeg(deg) }, { label: 'Rotate', coalesce: `rot:${single.id}` });
   }
-  function rotateDelta(delta: number) {
-    setRotation(((primaryShape as any)?.rotation ?? 0) + delta);
-  }
+  const rotateBy = (d: number) => single && setRotation(single.rotation + d);
+  const setOpacity = (v: number) => editor.setStyle({ opacity: v }, 'Change opacity');
 
-  // ── Opacity ───────────────────────────────────────────────────────────────
-  function setOpacity(v: number) {
-    if (!primaryId) return;
-    editorStore.updateShape(primaryId, { opacity: v });
-  }
+  $: rotation = single ? Math.round(single.rotation * 10) / 10 : 0;
+  $: opacity  = single?.opacity ?? sel[0]?.opacity ?? 1;
+  $: convertible = editor.canConvertToPath(sel);
+  $: strokable   = editor.canStrokeToPath(sel);
+  $: canGroup    = sel.length > 1;
+  $: hasGroup    = sel.some((s: Shape) => s.type === 'group');
+  $: inGroup     = $ui.groupPath.length > 0;
 
-  // ── Flip ──────────────────────────────────────────────────────────────────
-  function flipH() {
-    if (!primaryShape) return;
-    const upd = flipShape(primaryShape, 'h');
-    if (Object.keys(upd).length) editorStore.updateShape(primaryShape.id, upd as any);
-  }
-  function flipV() {
-    if (!primaryShape) return;
-    const upd = flipShape(primaryShape, 'v');
-    if (Object.keys(upd).length) editorStore.updateShape(primaryShape.id, upd as any);
-  }
-
-  // ── Alignment ─────────────────────────────────────────────────────────────
-  function alignShapes(axis: string) {
-    if (selectedShapeIds.length < 2) return;
-
-    const selected  = shapes.filter(s => selectedShapeIds.includes(s.id));
-    const allBounds = selected.map(s => ({ id: s.id, b: getShapeBounds(s), shape: s }));
-
-    const gx  = Math.min(...allBounds.map(({b}) => b.x));
-    const gy  = Math.min(...allBounds.map(({b}) => b.y));
-    const gx2 = Math.max(...allBounds.map(({b}) => b.x + b.width));
-    const gy2 = Math.max(...allBounds.map(({b}) => b.y + b.height));
-    const gcx = (gx + gx2) / 2;
-    const gcy = (gy + gy2) / 2;
-
-    const updates = allBounds.map(({id, b, shape}) => {
-      let dx = 0, dy = 0;
-      switch (axis) {
-        case 'left':     dx = gx  - b.x;                      break;
-        case 'right':    dx = gx2 - (b.x + b.width);          break;
-        case 'top':      dy = gy  - b.y;                      break;
-        case 'bottom':   dy = gy2 - (b.y + b.height);         break;
-        case 'center-h': dx = gcx - (b.x + b.width  / 2);    break;
-        case 'center-v': dy = gcy - (b.y + b.height / 2);    break;
-      }
-      return { id, patch: translateShape(shape, dx, dy) as any };
-    }).filter(u => u.patch && (u.patch.x !== undefined || u.patch.x1 !== undefined || u.patch.cx !== undefined || u.patch.points !== undefined));
-
-    editorStore.updateShapes(updates);
-  }
-
-  // ── Zoom ──────────────────────────────────────────────────────────────────
-  function zoomIn()    { editorStore.setZoom(zoom * 1.25); }
-  function zoomOut()   { editorStore.setZoom(zoom / 1.25); }
-  function zoomReset() { editorStore.setZoom(1); }
-
-  $: rotation = (primaryShape as any)?.rotation ?? 0;
-  $: opacity  = primaryShape?.opacity ?? 1;
+  const BOOLEANS = BOOLEAN_ACTIONS;
+  const ALIGN = ALIGN_ACTIONS;
 </script>
 
 <div class="svge-cmdbar">
-  <!-- Always: undo/redo + zoom -->
+  <!-- Always: undo / redo + zoom -->
   <div class="svge-cmd-group">
-    <button class="svge-cmd-btn" disabled={!canUndo} on:click={() => editorStore.undo()} title="Undo [Ctrl+Z]">
-      <img src="/src/assets/icons/undo.svg" alt="Undo" class="icon">
+    <button class="svge-cmd-btn" disabled={!$canUndo} on:click={editor.undo} title="Undo [Ctrl+Z]" aria-label="Undo">
+      <Icon name="undo" size={18} alt="Undo" />
     </button>
-    <button class="svge-cmd-btn" disabled={!canRedo} on:click={() => editorStore.redo()} title="Redo [Ctrl+Y]">
-      <img src="/src/assets/icons/redo.svg" alt="Redo" class="icon">
+    <button class="svge-cmd-btn" disabled={!$canRedo} on:click={editor.redo} title="Redo [Ctrl+Y]" aria-label="Redo">
+      <Icon name="redo" size={18} alt="Redo" />
     </button>
   </div>
 
   <div class="svge-cmd-sep"></div>
 
   <div class="svge-cmd-group">
-    <button class="svge-cmd-btn" on:click={zoomOut} title="Zoom out">－</button>
-    <button class="svge-zoom-pill" on:click={zoomReset} title="Reset zoom">{Math.round(zoom * 100)}%</button>
-    <button class="svge-cmd-btn" on:click={zoomIn}  title="Zoom in">＋</button>
+    <button class="svge-cmd-btn svge-cmd-zoom" on:click={() => zoomBy(1 / 1.25)} title="Zoom out" aria-label="Zoom out">－</button>
+    <button class="svge-zoom-pill" on:click={() => zoomTo(1)} title="Reset zoom to 100%">{Math.round(zoom * 100)}%</button>
+    <button class="svge-cmd-btn svge-cmd-zoom" on:click={() => zoomBy(1.25)} title="Zoom in" aria-label="Zoom in">＋</button>
+    <button class="svge-cmd-pill" on:click={zoomFit} title="Fit canvas to window">Fit</button>
   </div>
 
   <div class="svge-cmd-sep"></div>
 
-  <!-- ── Transform context ──────────────────────────────────────────────── -->
-  {#if selectedTool === 'transform'}
-    {#if primaryShape}
-      <div class="svge-cmd-group svge-cmd-labeled">
-        <span class="svge-cmd-label">Rotate</span>
-        <input type="number" class="svge-cmd-num" value={rotation} min="-360" max="360" step="1"
-          on:change={e => setRotation(parseFloat((e.target as HTMLInputElement).value))} />
-        <span class="svge-cmd-unit">°</span>
-        <button class="svge-cmd-btn" on:click={() => rotateDelta(-90)} title="Rotate −90°">↺</button>
-        <button class="svge-cmd-btn" on:click={() => rotateDelta(90)}  title="Rotate +90°">↻</button>
-      </div>
-      <div class="svge-cmd-sep"></div>
-      <div class="svge-cmd-group svge-cmd-labeled">
-        <span class="svge-cmd-label">Opacity</span>
-        <input type="range" min="0" max="1" step="0.01" value={opacity} class="svge-cmd-slider"
-          on:input={e => setOpacity(parseFloat((e.target as HTMLInputElement).value))} />
-        <span class="svge-cmd-unit">{Math.round(opacity * 100)}%</span>
-      </div>
-      <div class="svge-cmd-sep"></div>
-      <div class="svge-cmd-group">
-        <button class="svge-cmd-btn" on:click={flipH} title="Flip horizontal">⇆</button>
-        <button class="svge-cmd-btn" on:click={flipV} title="Flip vertical">⇅</button>
-        <button class="svge-cmd-btn danger" on:click={() => editorStore.deleteSelectedShapes()} title="Delete [Del]">✕</button>
-      </div>
-
-    {:else if selectedShapeIds.length >= 2}
-      <div class="svge-cmd-group">
-        <span class="svge-cmd-label">{selectedShapeIds.length} selected</span>
-      </div>
+  <!-- ── Transform context ─────────────────────────────────────────────── -->
+  {#if $tool === 'transform'}
+    {#if sel.length >= 2}
+      <div class="svge-cmd-group"><span class="svge-cmd-label">{sel.length} selected</span></div>
       <div class="svge-cmd-sep"></div>
       <div class="svge-cmd-group">
         <span class="svge-cmd-label">Align</span>
-        {#each [
-          ['left',     '⊣', 'Align left edges'],
-          ['top',      '⊤', 'Align top edges'],
-          ['right',    '⊢', 'Align right edges'],
-          ['bottom',   '⊥', 'Align bottom edges'],
-          ['center-h', '⊼', 'Centre horizontally'],
-          ['center-v', '⊻', 'Centre vertically'],
-        ] as [axis, icon, title]}
-          <button class="svge-cmd-btn" {title} on:click={() => alignShapes(axis)}>{icon}</button>
+        {#each ALIGN as [axis, icon, title]}
+          <button class="svge-cmd-btn" {title} aria-label={title} on:click={() => editor.align(axis)}>{icon}</button>
         {/each}
       </div>
+      {#if editor.canBoolean(sel)}
+        <div class="svge-cmd-sep"></div>
+        <div class="svge-cmd-group">
+          {#each BOOLEANS as [op, title]}
+            <button class="svge-cmd-btn" {title} aria-label={BOOLEAN_LABEL[op]} on:click={() => editor.booleanOp(op)}><Icon name={op} size={18} alt={BOOLEAN_LABEL[op]} /></button>
+          {/each}
+        </div>
+      {/if}
+    {:else if single}
+      <div class="svge-cmd-group">
+        <input type="number" class="svge-cmd-num" value={rotation} min="0" max="360" step="1"
+          on:input={e => { const v = num(e); if (v >= 0 && v < 360) setRotation(v); }}
+          on:change={e => setRotation(num(e))} title="Rotation in degrees" aria-label="Rotation in degrees" />
+        <span class="svge-cmd-unit">°</span>
+        <button class="svge-cmd-btn" on:click={() => rotateBy(-90)} title="Rotate −90°">↺</button>
+        <button class="svge-cmd-btn" on:click={() => rotateBy(90)}  title="Rotate +90°">↻</button>
+      </div>
+    {:else}
+      <span class="svge-cmd-hint">Click a shape to select it · drag on empty canvas to select several · <kbd>Space</kbd>+drag pans</span>
+    {/if}
+
+    {#if sel.length}
+      {#if !$narrow}
       <div class="svge-cmd-sep"></div>
       <div class="svge-cmd-group">
-        <button class="svge-cmd-btn danger" on:click={() => editorStore.deleteSelectedShapes()} title="Delete [Del]">✕</button>
+        <!--
+        <span class="svge-cmd-label">Opacity</span>
+        -->
+        <input type="range" min="0" max="1" step="0.01" value={opacity} class="svge-cmd-slider"
+          on:input={e => setOpacity(num(e))} title="Opacity" aria-label="Opacity" />
+        <span class="svge-cmd-unit svge-cmd-pct">{Math.round(opacity * 100)}%</span>
       </div>
-
-    {:else}
-      <span class="svge-cmd-hint">Select a shape to transform it</span>
+      {/if}
+      <div class="svge-cmd-sep"></div>
+      <div class="svge-cmd-group">
+        <button class="svge-cmd-btn" on:click={() => editor.flip('h')} title="Flip horizontal">⇆</button>
+        <button class="svge-cmd-btn" on:click={() => editor.flip('v')} title="Flip vertical">⇅</button>
+        <button class="svge-cmd-btn danger" on:click={editor.deleteSelected} title="Delete [Del]" aria-label="Delete">✕</button>
+      </div>
     {/if}
+    {#if canGroup || hasGroup || inGroup || convertible || strokable}
+      <div class="svge-cmd-sep"></div>
+      <div class="svge-cmd-group">
+        {#if canGroup}<button class="svge-cmd-btn" on:click={editor.group} title="Group [Ctrl+G]" aria-label="Group"><Icon name="group" size={18} alt="Group" /></button>{/if}
+        {#if hasGroup}<button class="svge-cmd-btn" on:click={editor.ungroup} title="Ungroup [Ctrl+Shift+G]" aria-label="Ungroup"><Icon name="ungroup" size={18} alt="Ungroup" /></button>{/if}
+        {#if inGroup}<button class="svge-cmd-btn" on:click={editor.exitGroup} title="Exit group" aria-label="Exit group"><Icon name="exit-group" size={18} alt="Exit group" /></button>{/if}
+        {#if convertible}<button class="svge-cmd-btn" on:click={() => editor.convertToPath()} title="Shape to path" aria-label="Shape to path"><Icon name="to-path" size={18} alt="Shape to path" /></button>{/if}
+        {#if strokable}<button class="svge-cmd-btn" on:click={() => editor.strokeToPath()} title="Stroke to path" aria-label="Stroke to path"><Icon name="stroke-to-path" size={18} alt="Stroke to path" /></button>{/if}
+      </div>
+    {/if}
+    {#if inGroup}<span class="svge-cmd-hint">Editing inside a group — click outside it or press <kbd>Esc</kbd> to leave</span>{/if}
   {/if}
 
-  <!-- ── Edit context ─────────────────────────────────────────────────────── -->
-  {#if selectedTool === 'edit'}
-    {#if primaryShape}
-      <span class="svge-cmd-hint">
-        Drag nodes to reshape · <strong>{primaryShape.type}</strong>
-        {#if primaryShape.type === 'rectangle'} · orange ◆ = corner radius{/if}
-        {#if primaryShape.type === 'arc'} · orange ◆ = arc curvature{/if}
-      </span>
+  <!-- ── Edit context ───────────────────────────────────────────────────── -->
+  {#if $tool === 'edit'}
+    {#if single}
+      {#if single.type === 'path'}
+        <span class="svge-cmd-hint">
+          Drag nodes and handles · <kbd>Shift</kbd>-click or drag a box to pick several · double-click the path to <strong>add</strong> a node ·
+          double-click a node: corner ⇄ smooth · <kbd>Del</kbd> removes the picked nodes
+        </span>
+      {:else if single.type === 'text'}
+        <span class="svge-cmd-hint">Text has no nodes — double-click it with the Select tool to edit the text, or convert it to a path</span>
+      {:else if single.type === 'image'}
+        <span class="svge-cmd-hint">An image has no nodes: resize, rotate and flip it with the Select tool</span>
+      {:else if single.type === 'group'}
+        <span class="svge-cmd-hint">A group has no nodes — click one of its shapes (the Select tool double-click enters the group)</span>
+      {:else}
+        <span class="svge-cmd-hint">
+          Drag nodes to reshape · <strong>{single.type}</strong>
+          {#if single.type === 'rectangle'} · orange ◆ = corner radius{/if}
+          {#if single.type === 'ellipse'} · ◆ = radii{/if}
+        </span>
+      {/if}
+      {#if convertible}
+        <div class="svge-cmd-sep"></div>
+        <button class="svge-cmd-btn" on:click={() => editor.convertToPath()} title="Shape to path" aria-label="Shape to path"><Icon name="to-path" size={18} alt="Shape to path" /></button>
+      {/if}
     {:else}
       <span class="svge-cmd-hint">Click a shape to edit its nodes</span>
     {/if}
   {/if}
 
-  <!-- ── Text context ─────────────────────────────────────────────────────── -->
-  {#if selectedTool === 'text'}
+  <!-- ── Text context ───────────────────────────────────────────────────── -->
+  {#if $tool === 'text'}
     <div class="svge-cmd-group">
-      <!--
-        FontPicker uses position:fixed for its dropdown, so it escapes
-        the CommandBar's overflow-y:hidden clipping.
-      -->
-      <FontPicker
-        value={displayTp.fontFamily}
-        compact={true}
-        onChange={f => setDisplayTp('fontFamily', f)}
-      />
-      <input type="number" class="svge-cmd-num" value={displayTp.fontSize} min="6" max="300"
-        on:change={e => setDisplayTp('fontSize', parseFloat((e.target as HTMLInputElement).value))} />
+      <!-- FontPicker's dropdown is position:fixed, so the bar's overflow clipping cannot hide it. -->
+      <FontPicker value={tp.fontFamily} compact={true} onChange={f => editor.setTextProp('fontFamily', f)} />
+      <input type="number" class="svge-cmd-num" value={tp.fontSize} min="6" max="300"
+        on:change={e => editor.setTextProp('fontSize', num(e))} aria-label="Font size" />
       <span class="svge-cmd-unit">px</span>
     </div>
     <div class="svge-cmd-sep"></div>
     <div class="svge-cmd-group">
-      <!--
-        FIX: buttons use displayTp (selected shape's props OR global defaults)
-        so they reflect the actual active state immediately without delay.
-      -->
-      <button class="svge-cmd-btn" class:active={displayTp.fontWeight==='bold'}
-        on:click={() => setDisplayTp('fontWeight', displayTp.fontWeight==='bold'?'normal':'bold')}
-        title="Bold"><strong>B</strong></button>
-      <button class="svge-cmd-btn" class:active={displayTp.fontStyle==='italic'}
-        on:click={() => setDisplayTp('fontStyle', displayTp.fontStyle==='italic'?'normal':'italic')}
-        title="Italic"><em>I</em></button>
-      <button class="svge-cmd-btn" class:active={displayTp.textDecoration==='underline'}
-        on:click={() => setDisplayTp('textDecoration', displayTp.textDecoration==='underline'?'none':'underline')}
-        title="Underline"><u>U</u></button>
+      <button class="svge-cmd-btn" class:active={tp.fontWeight >= 600}
+        on:click={() => editor.setTextProp('fontWeight', tp.fontWeight >= 600 ? 400 : 700)} title="Bold (the Typography panel has every weight)"><strong>B</strong></button>
+      <button class="svge-cmd-btn" class:active={tp.fontStyle === 'italic'}
+        on:click={() => editor.setTextProp('fontStyle', tp.fontStyle === 'italic' ? 'normal' : 'italic')} title="Italic"><em>I</em></button>
+      <button class="svge-cmd-btn" class:active={decorationLines(tp.textDecoration).includes('underline')}
+        on:click={() => editor.setTextProp('textDecoration', toggleDecoration(tp.textDecoration, 'underline'))} title="Underline"><u>U</u></button>
     </div>
     <div class="svge-cmd-sep"></div>
     <div class="svge-cmd-group">
-      {#each [['start','⊣'],['middle','⊼'],['end','⊢']] as [val, icon]}
-        <button class="svge-cmd-btn" class:active={displayTp.textAnchor===val}
-          on:click={() => setDisplayTp('textAnchor', val as any)}
-          title="Align {val}">{icon}</button>
+      {#each [['start', '⊣'], ['middle', '⊼'], ['end', '⊢']] as [val, icon]}
+        <button class="svge-cmd-btn" class:active={tp.textAnchor === val}
+          on:click={() => editor.setTextProp('textAnchor', val as TextProps['textAnchor'])} title="Anchor: {val}">{icon}</button>
       {/each}
     </div>
     <div class="svge-cmd-sep"></div>
-    <span class="svge-cmd-hint">Click canvas to place · double-click text to edit · <kbd>Ctrl+Enter</kbd> to confirm</span>
+    <span class="svge-cmd-hint">Click canvas to place · click text to edit · <kbd>Esc</kbd> or <kbd>Ctrl+Enter</kbd> to confirm</span>
   {/if}
 
-  <!-- ── Curve context ─────────────────────────────────────────────────────── -->
-  {#if selectedTool === 'curve'}
-    <div class="svge-cmd-group">
-      {#each [['quadratic-bezier','Quad Bézier'],['cubic-bezier','Cubic Bézier'],['arc','Arc']] as [val, label]}
-        <button class="svge-cmd-pill" class:active={curveSubTool===val}
-          on:click={() => editorStore.setCurveSubTool(val as any)}>{label}</button>
-      {/each}
-    </div>
-    <div class="svge-cmd-sep"></div>
+  <!-- ── Pen ────────────────────────────────────────────────────────────── -->
+  {#if $tool === 'pen'}
     <span class="svge-cmd-hint">
-      {#if curveSubTool === 'arc'}Click start · move to preview arc · click to place end{:else}Click start · click+drag end to pull handles{/if}
-      · <kbd>Esc</kbd> to stop
+      Click = corner node · click-drag = smooth node · click the first node to close · <kbd>A</kbd> continues with arcs ·
+      click an end of the selected open path to extend it · double-click / <kbd>Enter</kbd> / <kbd>Esc</kbd> to finish
     </span>
   {/if}
 
-  <!-- ── Polygon / polyline context ──────────────────────────────────────── -->
-  {#if selectedTool === 'polygon'}
+  <!-- ── Arc ─────────────────────────────────────────────────────────────── -->
+  {#if $tool === 'arc'}
+    <span class="svge-cmd-hint">
+      Drag (or click) from one end to the other · move to bend, click · the next arc starts there · <kbd>Shift</kbd> = 15° ·
+      <kbd>B</kbd> continues with the Pen · double-click / <kbd>Enter</kbd> / <kbd>Esc</kbd> to finish
+    </span>
+  {/if}
+
+  <!-- ── Polygon / polyline ─────────────────────────────────────────────── -->
+  {#if $tool === 'polygon'}
     <div class="svge-cmd-group">
-      <button class="svge-cmd-pill" class:active={polygonClosed}
-        on:click={() => editorStore.setPolygonClosed(true)}
-        title="Draw closed polygons">Polygon</button>
-      <button class="svge-cmd-pill" class:active={!polygonClosed}
-        on:click={() => editorStore.setPolygonClosed(false)}
-        title="Draw open polylines">Polyline</button>
+      <button class="svge-cmd-pill" class:active={polygonClosed} on:click={() => ui.set({ polygonClosed: true })} title="Draw closed polygons">Polygon</button>
+      <button class="svge-cmd-pill" class:active={!polygonClosed} on:click={() => ui.set({ polygonClosed: false })} title="Draw open polylines">Polyline</button>
     </div>
     <div class="svge-cmd-sep"></div>
     <span class="svge-cmd-hint">
       Click to add points ·
-      {#if polygonClosed}snap to start or double-click to close{:else}double-click or <kbd>Esc</kbd> to finish{/if}
+      {#if polygonClosed}click the first point or double-click to close{:else}double-click, <kbd>Enter</kbd> or <kbd>Esc</kbd> to finish{/if}
+      · <kbd>Backspace</kbd> removes the last point
     </span>
   {/if}
 
-  <!-- ── Line context ──────────────────────────────────────────────────────── -->
-  {#if selectedTool === 'line'}
-    <span class="svge-cmd-hint">Click and drag · <kbd>Shift</kbd> to snap to 45°</span>
+  {#if $tool === 'blob'}
+    <div class="svge-cmd-group">
+      <input type="range" min="1" max="200" step="1" value={$ui.blobSize} class="svge-cmd-slider"
+        on:input={e => ui.set({ blobSize: num(e) })} title="Brush size" aria-label="Brush size" />
+      <input type="number" class="svge-cmd-num" min="1" max="200" value={$ui.blobSize}
+        on:change={e => { const v = num(e); if (v >= 1) ui.set({ blobSize: Math.min(200, v) }); }} aria-label="Brush size in pixels" />
+      <span class="svge-cmd-unit">px</span>
+    </div>
+    <div class="svge-cmd-sep"></div>
+    <span class="svge-cmd-hint">Paint with the fill color · strokes merge with touching shapes of the same color</span>
   {/if}
-
-  <!-- ── Rectangle context ─────────────────────────────────────────────────── -->
-  {#if selectedTool === 'rectangle'}
-    <span class="svge-cmd-hint">Click and drag · <kbd>Shift</kbd> for square · use Edit tool to adjust corner radius</span>
+  {#if $tool === 'scissors'}
+    <span class="svge-cmd-hint">Drag across shapes to cut them · back to the start cuts out the loop · <kbd>Shift</kbd> straight cut · click an outline to split it there · cuts only the selection when there is one</span>
   {/if}
-
-  <!-- ── Ellipse context ───────────────────────────────────────────────────── -->
-  {#if selectedTool === 'ellipse'}
-    <span class="svge-cmd-hint">Click and drag · <kbd>Shift</kbd> for circle</span>
+  {#if $tool === 'line'}
+    <span class="svge-cmd-hint">Click and drag · <kbd>Shift</kbd> snaps to 45°</span>
   {/if}
-
-  <!-- ── Freehand context ──────────────────────────────────────────────────── -->
-  {#if selectedTool === 'freehand'}
-    <span class="svge-cmd-hint">Click and drag to draw freely</span>
+  {#if $tool === 'rectangle'}
+    <span class="svge-cmd-hint">Click and drag · <kbd>Shift</kbd> square · <kbd>Alt</kbd> from centre · Edit tool adjusts the corner radius</span>
   {/if}
-
-  <!-- ── Zoom context ──────────────────────────────────────────────────────── -->
-  {#if selectedTool === 'zoom'}
-    <span class="svge-cmd-hint">LMB zoom in · RMB zoom out · <kbd>Ctrl</kbd>+scroll anywhere</span>
+  {#if $tool === 'ellipse'}
+    <span class="svge-cmd-hint">Click and drag · <kbd>Shift</kbd> circle · <kbd>Alt</kbd> from centre</span>
+  {/if}
+  {#if $tool === 'freehand'}
+    <span class="svge-cmd-hint">Click and drag to draw freely — the stroke is smoothed into a few editable nodes</span>
   {/if}
 </div>
 
@@ -321,9 +270,10 @@
   .svge-cmd-btn.active               { background: var(--tool-active); border-color: var(--tool-border-active); }
   .svge-cmd-btn.danger:hover:not(:disabled) { background: #e74c3c18; border-color: #e74c3c55; color: #e74c3c; }
 
+  .svge-cmd-btn.svge-cmd-zoom { width: 28px; }
   .svge-zoom-pill {
-    padding: 0 8px; height: 26px; background: transparent; border: 1px solid var(--border-color);
-    border-radius: 4px; color: var(--text-color); font-size: 0.82rem; font-family: monospace;
+    padding: 0 2px; height: 26px; width: 45px; background: transparent; border: 1px solid var(--border-color);
+    border-radius: 4px; color: var(--text-color); font-size: 0.75rem; font-family: monospace;
     cursor: pointer; transition: background 0.12s; white-space: nowrap; flex-shrink: 0;
   }
   .svge-zoom-pill:hover { background: var(--ruler-bg); }
@@ -337,6 +287,9 @@
   .svge-cmd-slider { width: 70px; cursor: pointer; accent-color: var(--accent-color); flex-shrink: 0; }
   .svge-cmd-unit { font-size: 0.75rem; color: var(--text-color); opacity: 0.5; padding: 0 2px; white-space: nowrap; flex-shrink: 0; }
 
+  /* fixed width: "5%" → "100%" must not push the buttons to the right */
+  .svge-cmd-pct { display: inline-block; width: 5ch; text-align: right; font-variant-numeric: tabular-nums; }
+
   .svge-cmd-hint { font-size: 0.82rem; color: var(--text-color); opacity: 0.45; padding: 0 6px; white-space: nowrap; flex-shrink: 0; }
   .svge-cmd-hint kbd { background: var(--border-color); border-radius: 3px; padding: 1px 4px; font-size: 0.75rem; font-family: monospace; }
 
@@ -347,6 +300,4 @@
   }
   .svge-cmd-pill:hover  { background: var(--ruler-bg); }
   .svge-cmd-pill.active { background: var(--tool-active); border-color: var(--tool-border-active); }
-
-  .svge-cmd-labeled { gap: 4px; }
 </style>

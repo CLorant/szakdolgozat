@@ -1,41 +1,26 @@
 <!doctype html>
-<html lang="hu">
-
+<html lang="en">
 <head>
 	<meta charset="UTF-8" />
-	
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-	<title>Solid SVG</title>
-	<meta name="description" content="Solid SVG">
+	<title>Solid SVG Editor</title>
+	<meta name="description" content="Create and edit Scalable Vector Graphics (SVG) files.">
+	<meta name="theme-color" content="#2E2E2E">
 
-	<meta property="og:site_name" content="">
-    <meta property="og:title" content="">
-    <meta property="og:description" content="">
-    <meta property="og:locale" content="hu_HU">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="">
-    <meta property="og:url" content="">
-    
-    <meta name="twitter:card" content="summary_large_image">
-    <meta property="twitter:domain" content="">
-    <meta property="twitter:url" content="">
-    <meta name="twitter:title" content="">
-    <meta name="twitter:description" content="">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico" />
 
-    <meta name="theme-color" content="#2E2E2E">
-
-    <meta name="robots" content="index">
-    <meta name="robots" content="follow">
-
-	<link rel="icon" type="image/svg+xml" href="/vite.svg" />
-	<link rel="stylesheet" href="/src/bootstrap/bootstrap.min.css">
+	<script>
+		try {
+			var t = localStorage.getItem('theme');
+			if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+			document.documentElement.setAttribute('data-theme', t);
+		} catch (e) {}
+	</script>
 </head>
 
 <body>
 	<div id="app"></div>
 	<script type="module" src="/src/main.ts"></script>
-	<script type="module" src="/src/bootstrap/bootstrap.bundle.min.js"></script>
 </body>
-
 </html>

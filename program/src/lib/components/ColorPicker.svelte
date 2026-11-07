@@ -1,15 +1,13 @@
 <script lang="ts">
   /**
-   * ColorPicker — fully custom, pointer-captured, no external library.
-   *
-   * Props:
-   *   value     — current color as hex string ('#rrggbb' or '#rrggbbaa')
-   *   showAlpha — whether to show the alpha slider (default true)
-   *
-   * Dispatches:
-   *   change(hex: string) — every time the color changes interactively
+   * @file Color picker: saturation/value square, hue and alpha sliders, HEX / RGB / HSL fields. No external library.
+   * Emits `change` with '#rrggbb' or '#rrggbbaa' on every interactive change. The HEX / RGB / HSL choice is shared
+   * by all pickers (stores/colorMode.ts). The swatch opens the recent colors and the colors of the drawing; a color
+   * counts as picked when a drag ends or a field is left (stores/recentColors.ts).
    */
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, tick } from 'svelte';
+  import { colorMode } from '../stores/colorMode';
+  import { recentColors, documentColors, rememberColor } from '../stores/recentColors';
 
   export let value     = '#aaaaaa';
   export let showAlpha = true;
@@ -18,21 +16,22 @@
 
   // ── Internal HSV + alpha ────────────────────────────────────────────────
   let h = 0, s = 100, v = 100, a = 1;
-  let mode: 'hex' | 'rgb' | 'hsl' = 'hex';
+  $: mode = $colorMode;                            // shared by all pickers, remembered between visits
   let hexText = '';
 
-  /**
-   * The last hex value we ourselves emitted. If the parent echoes this same
-   * value back through the `value` prop we skip re-syncing so we don't
-   * overwrite the user's live drag position.
-   */
-  let _lastEmittedHex = '';
+  // Re-parse when the value changes from outside, but not when the parent only echoes what was emitted.
+  // A function call, so that `value` is the only dependency of the reactive statement.
+  $: _syncFromProp(value);
 
-  // Re-parse whenever the prop changes from outside, but not when the parent
-  // is just echoing back what we already emitted.
-  $: if (value && value !== _lastEmittedHex) _syncFromProp(value);
+  function _currentHex() {
+    const rgb = _hsvToRgb(h, s, v);
+    return _rgbToHex(rgb.r, rgb.g, rgb.b, showAlpha ? a : 1);
+  }
 
   function _syncFromProp(val: string) {
+    if (!val) return;
+    const lower = val.toLowerCase();
+    if (lower === _currentHex()) return;   // already showing this color (our own echo): keep the live drag position
     const c = parseColor(val);
     if (!c) return;
     const hsv = _rgbToHsv(c.r, c.g, c.b);
@@ -51,21 +50,35 @@
   $: _rgb  = _hsvToRgb(h, s, v);
   $: _hsl  = _rgbToHsl(_rgb.r, _rgb.g, _rgb.b);
   $: _alphaGrad = `linear-gradient(to right, rgba(${_rgb.r},${_rgb.g},${_rgb.b},0) 0%, rgb(${_rgb.r},${_rgb.g},${_rgb.b}) 100%)`;
-  $: _swatchStyle = `background: rgba(${_rgb.r},${_rgb.g},${_rgb.b},${a})`;
+  $: _swatchStyle = `--swatch-bg: linear-gradient(rgba(${_rgb.r},${_rgb.g},${_rgb.b},${a}), rgba(${_rgb.r},${_rgb.g},${_rgb.b},${a}))`;
 
   /**
-   * Compute the current color DIRECTLY from h/s/v/a rather than reading the
-   * reactive `_hex` variable, which may not have updated yet inside an event
-   * handler (Svelte 4 defers reactive re-computations to after the current
-   * tick). Dispatching a stale value was the root cause of the "jump back"
-   * bug on SV panel and alpha slider drags.
+   * Emits the color computed directly from h/s/v/a: inside an event handler the reactive values are not updated
+   * yet (Svelte recomputes them after the current tick), and emitting those would make the indicator jump back.
    */
   function _emit() {
     const rgb = _hsvToRgb(h, s, v);
     const currentHex = _rgbToHex(rgb.r, rgb.g, rgb.b, showAlpha ? a : 1);
-    _lastEmittedHex = currentHex;
     dispatch('change', currentHex);
   }
+
+  /** A pick is finished (drag released, field left): it goes to the recent colors. */
+  function settle() { rememberColor(_currentHex()); }
+
+  // ── Recent colors (the swatch) ──────────────────────────────────────────
+  let recentOpen = false;
+  let recentEl: HTMLElement | undefined;
+  let swatchEl: HTMLButtonElement | undefined;
+  function pickRecent(hex: string) {
+    const c = parseColor(hex);
+    if (c) { _applyColor(c); _refreshHexText(); rememberColor(hex); }
+    recentOpen = false;
+  }
+  function onWindowDown(e: PointerEvent) {
+    if (recentOpen && !recentEl?.contains(e.target as Node) && !swatchEl?.contains(e.target as Node)) recentOpen = false;
+  }
+  function onWindowKey(e: KeyboardEvent) { if (recentOpen && e.key === 'Escape') { e.stopPropagation(); recentOpen = false; } }
+  $: chipBg = (hex: string) => `--chip:${hex}`;
 
   // ── SV (saturation/value) panel ─────────────────────────────────────────
   function onSVDown(e: PointerEvent) {
@@ -117,31 +130,49 @@
   }
 
   // ── Hex input ────────────────────────────────────────────────────────────
-  // Using bind:value so user can type freely; we commit on blur or Enter.
-  function commitHex() {
-    const raw = hexText.trim();
-    const c   = parseColor(raw.startsWith('#') ? raw : '#' + raw);
-    if (c) {
-      const hsv = _rgbToHsv(c.r, c.g, c.b);
-      if (hsv.s > 1) h = hsv.h;
-      s = hsv.s; v = hsv.v;
-      a = showAlpha ? c.a : 1;
-      _refreshHexText();
-      _emit();
-    } else {
-      // Invalid input — reset display to current valid color
-      _refreshHexText();
+  // Live: every keystroke that forms a complete color (3, 4, 6 or 8 digits) is applied at once, so the
+  // user never has to press Enter (there is no Enter on many phone keyboards). The text is only
+  // rewritten when it contains junk (sanitised on the spot) and on blur / Enter (normalised: opacity
+  // digits are dropped when the color is fully opaque, #abc becomes #AABBCC).
+  const sanitizeHex = (t: string) => '#' + t.replace(/[^0-9a-fA-F]/g, '').slice(0, 8).toUpperCase();
+
+  function _applyColor(c: { r: number; g: number; b: number; a: number }) {
+    const hsv = _rgbToHsv(c.r, c.g, c.b);
+    if (hsv.s > 1) h = hsv.h;
+    s = hsv.s; v = hsv.v;
+    a = showAlpha ? c.a : 1;
+    _emit();
+  }
+
+  function onHexInput(e: Event) {
+    const el = e.target as HTMLInputElement;
+    const clean = sanitizeHex(el.value);
+    if (el.value !== clean) el.value = clean;
+    hexText = clean;
+    if ([4, 5, 7, 9].includes(clean.length)) {                    // '#' + 3 / 4 / 6 / 8 digits
+      const c = parseColor(clean);
+      if (c) _applyColor(c);
     }
+  }
+  function commitHex() {
+    const c = parseColor(sanitizeHex(hexText));
+    if (c) _applyColor(c);
+    _refreshHexText();                                              // normalised text, or the last valid color
   }
   function onHexKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter') { e.preventDefault(); commitHex(); }
   }
 
-  // ── Alpha % input ─────────────────────────────────────────────────────────
-  function commitAlpha(e: Event) {
-    const n = parseFloat((e.target as HTMLInputElement).value);
-    if (!isNaN(n)) { a = Math.max(0, Math.min(1, n / 100)); _refreshHexText(); _emit(); }
+  // ── Number fields ────────────────────────────────────────────────────────
+  // All of them apply while typing (clamped into their range: too low → min, too high → max) and are
+  // rewritten with the value that really took effect when the field is left.
+  function _numInput(e: Event, cb: (n: number) => void, lo: number, hi: number, shown?: () => number) {
+    const el = e.target as HTMLInputElement;
+    const val = parseFloat(el.value);
+    if (!isNaN(val)) cb(Math.min(hi, Math.max(lo, val)));
+    if (e.type === 'change') tick().then(() => { if (shown) el.value = String(shown()); });
   }
+  const pct = (e: Event) => _numInput(e, n => { a = n / 100; _refreshHexText(); _emit(); }, 0, 100, () => Math.round(a * 100));
 
   // ── RGB inputs ───────────────────────────────────────────────────────────
   // Using on:input for immediate apply; the number field only fires valid numbers.
@@ -167,10 +198,6 @@
     _refreshHexText(); _emit();
   }
 
-  function _numInput(e: Event, cb: (n: number) => void) {
-    const val = parseFloat((e.target as HTMLInputElement).value);
-    if (!isNaN(val)) cb(val);
-  }
 
   // ── Color math ───────────────────────────────────────────────────────────
 
@@ -182,6 +209,14 @@
         r: parseInt(hex[0]+hex[0], 16),
         g: parseInt(hex[1]+hex[1], 16),
         b: parseInt(hex[2]+hex[2], 16), a: 1,
+      };
+    }
+    if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+      return {
+        r: parseInt(hex[0]+hex[0], 16),
+        g: parseInt(hex[1]+hex[1], 16),
+        b: parseInt(hex[2]+hex[2], 16),
+        a: parseInt(hex[3]+hex[3], 16) / 255,
       };
     }
     if (/^[0-9a-fA-F]{6}$/.test(hex)) {
@@ -271,6 +306,8 @@
   }
 </script>
 
+<svelte:window on:pointerdown|capture={onWindowDown} on:keydown|capture={onWindowKey} />
+
 <div class="cp-wrap">
   <!-- ── Saturation / Value 2D panel ───────────────────────────────── -->
   <div
@@ -278,7 +315,7 @@
     style="--cp-hue:{h}deg"
     on:pointerdown={onSVDown}
     on:pointermove={onSVMove}
-    on:pointerup={() => {}}
+    on:pointerup={settle}
     role="presentation"
   >
     <div class="sv-thumb" style="left:{s}%; top:{100-v}%"></div>
@@ -286,13 +323,15 @@
 
   <!-- ── Hue slider ────────────────────────────────────────────────── -->
   <div class="slider-row">
-    <div class="swatch" style={_swatchStyle}></div>
+    <button type="button" class="swatch" bind:this={swatchEl} style={_swatchStyle} class:open={recentOpen}
+      title="Recent colors" aria-label="Recent colors" aria-haspopup="dialog" aria-expanded={recentOpen}
+      on:click={() => (recentOpen = !recentOpen)}><span class="swatch-caret" aria-hidden="true">▾</span></button>
     <div class="sliders">
       <div
         class="cp-slider hue-track"
         on:pointerdown={onHueDown}
         on:pointermove={onHueMove}
-        on:pointerup={() => {}}
+        on:pointerup={settle}
         role="presentation"
       >
         <div class="cp-thumb" style="left:{(h/360)*100}%"></div>
@@ -305,14 +344,37 @@
           style="--alpha-grad:{_alphaGrad}"
           on:pointerdown={onAlphaDown}
           on:pointermove={onAlphaMove}
-          on:pointerup={() => {}}
+          on:pointerup={settle}
           role="presentation"
         >
           <div class="cp-thumb" style="left:{a*100}%"></div>
         </div>
       {/if}
     </div>
+    {#if recentOpen}
+      <div class="recent" bind:this={recentEl} role="dialog" aria-label="Recent colors">
+        <div class="recent-head">Recent</div>
+        {#if $recentColors.length}
+          <div class="chips">
+            {#each $recentColors as c (c)}
+              <button type="button" class="chip" style={chipBg(c)} title={c.toUpperCase()} aria-label={c.toUpperCase()} on:click={() => pickRecent(c)}></button>
+            {/each}
+          </div>
+        {:else}
+          <div class="recent-empty">The colors you pick show up here.</div>
+        {/if}
+        {#if $documentColors.length}
+          <div class="recent-head">Currently used</div>
+          <div class="chips">
+            {#each $documentColors as c (c)}
+              <button type="button" class="chip" style={chipBg(c)} title={c.toUpperCase()} aria-label={c.toUpperCase()} on:click={() => pickRecent(c)}></button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
+
 
   <!-- ── Mode tabs ─────────────────────────────────────────────────── -->
   <div class="mode-tabs">
@@ -320,23 +382,27 @@
       <button
         class="mode-tab"
         class:active={mode === m}
-        on:click={() => mode = m}
+        on:click={() => colorMode.set(m)}
       >{m.toUpperCase()}</button>
     {/each}
   </div>
 
   <!-- ── Inputs ────────────────────────────────────────────────────── -->
-  <div class="inputs">
+  <div class="inputs" on:change={settle}>
     {#if mode === 'hex'}
       <!-- bind:value so the user can type freely; committed on blur or Enter -->
       <input
         type="text"
         class="hex-input"
-        bind:value={hexText}
+        value={hexText}
+        on:input={onHexInput}
         on:blur={commitHex}
         on:keydown={onHexKeyDown}
         spellcheck="false"
-        maxlength="9"
+        autocapitalize="characters"
+        autocomplete="off"
+        maxlength="12"
+        aria-label="Hex color"
       />
       {#if showAlpha}
         <div class="alpha-num-wrap">
@@ -344,7 +410,8 @@
             type="number" min="0" max="100" step="1"
             class="num-small"
             value={Math.round(a*100)}
-            on:change={commitAlpha}
+            inputmode="numeric"
+            on:input={pct} on:change={pct}
           />
           <span class="unit">%</span>
         </div>
@@ -355,24 +422,24 @@
         <div class="channel">
           <span class="ch-label">R</span>
           <input type="number" min="0" max="255" step="1" class="num-small" value={_rgb.r}
-            on:change={e => _numInput(e, setR)} />
+            inputmode="numeric" on:input={e => _numInput(e, setR, 0, 255)} on:change={e => _numInput(e, setR, 0, 255, () => _rgb.r)} />
         </div>
         <div class="channel">
           <span class="ch-label">G</span>
           <input type="number" min="0" max="255" step="1" class="num-small" value={_rgb.g}
-            on:change={e => _numInput(e, setG)} />
+            inputmode="numeric" on:input={e => _numInput(e, setG, 0, 255)} on:change={e => _numInput(e, setG, 0, 255, () => _rgb.g)} />
         </div>
         <div class="channel">
           <span class="ch-label">B</span>
           <input type="number" min="0" max="255" step="1" class="num-small" value={_rgb.b}
-            on:change={e => _numInput(e, setB)} />
+            inputmode="numeric" on:input={e => _numInput(e, setB, 0, 255)} on:change={e => _numInput(e, setB, 0, 255, () => _rgb.b)} />
         </div>
         {#if showAlpha}
           <div class="channel">
             <span class="ch-label">A</span>
             <input type="number" min="0" max="100" step="1" class="num-small"
-              value={Math.round(a*100)}
-              on:change={commitAlpha} />
+              value={Math.round(a*100)} inputmode="numeric"
+              on:input={pct} on:change={pct} />
           </div>
         {/if}
       </div>
@@ -382,24 +449,24 @@
         <div class="channel">
           <span class="ch-label">H</span>
           <input type="number" min="0" max="360" step="1" class="num-small" value={_hsl.h}
-            on:change={e => _numInput(e, setHslH)} />
+            inputmode="numeric" on:input={e => _numInput(e, setHslH, 0, 360)} on:change={e => _numInput(e, setHslH, 0, 360, () => _hsl.h)} />
         </div>
         <div class="channel">
           <span class="ch-label">S</span>
           <input type="number" min="0" max="100" step="1" class="num-small" value={_hsl.s}
-            on:change={e => _numInput(e, setHslS)} />
+            inputmode="numeric" on:input={e => _numInput(e, setHslS, 0, 100)} on:change={e => _numInput(e, setHslS, 0, 100, () => _hsl.s)} />
         </div>
         <div class="channel">
           <span class="ch-label">L</span>
           <input type="number" min="0" max="100" step="1" class="num-small" value={_hsl.l}
-            on:change={e => _numInput(e, setHslL)} />
+            inputmode="numeric" on:input={e => _numInput(e, setHslL, 0, 100)} on:change={e => _numInput(e, setHslL, 0, 100, () => _hsl.l)} />
         </div>
         {#if showAlpha}
           <div class="channel">
             <span class="ch-label">A</span>
             <input type="number" min="0" max="100" step="1" class="num-small"
-              value={Math.round(a*100)}
-              on:change={commitAlpha} />
+              value={Math.round(a*100)} inputmode="numeric"
+              on:input={pct} on:change={pct} />
           </div>
         {/if}
       </div>
@@ -443,12 +510,14 @@
 
   /* ── Swatch + sliders row ─────────────────────────────────── */
   .slider-row {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
   .swatch {
+    position: relative; padding: 0; cursor: pointer;
     width: 28px;
     height: 28px;
     border-radius: 50%;
@@ -460,6 +529,33 @@
     background-size: auto, 8px 8px;
     background-position: auto, 0 0;
   }
+
+  .swatch:hover, .swatch.open { box-shadow: 0 0 0 2px var(--accent-color); }
+  /* The hint that the swatch opens something: a small caret badge on its lower right */
+  .swatch-caret {
+    position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);
+    font-size: 8px; line-height: 10px; text-align: center; opacity: 0.85; pointer-events: none;
+  }
+
+  .recent {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20;
+    padding: 6px 8px 8px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  }
+  .recent-head {
+    font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-color); opacity: 0.5; margin: 2px 0 5px;
+  }
+  .chips + .recent-head { margin-top: 8px; }
+  .recent-empty { font-size: 0.75rem; color: var(--text-color); opacity: 0.6; padding: 2px 0 4px; }
+  .chips { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+  .chip {
+    aspect-ratio: 1; min-width: 0; padding: 0; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;
+    background-image: linear-gradient(var(--chip), var(--chip)), repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%);
+    background-size: auto, 8px 8px;
+  }
+  .chip:hover { outline: 2px solid var(--accent-color); outline-offset: 1px; }
 
   .sliders {
     flex: 1;
