@@ -463,7 +463,7 @@
           <div class="svge-section-head">Style</div>
           <button class="svge-style-btn" class:active={tp.fontStyle === 'italic'} aria-pressed={tp.fontStyle === 'italic'}
             title={fontStylesOf.italic ? 'Italic' : 'This font has no italic face: the letters are slanted instead'}
-            on:click={() => setTp('fontStyle', tp.fontStyle === 'italic' ? 'normal' : 'italic')}><em>I</em> {fontStylesOf.italic ? 'Italic' : 'Synthesized italic'}</button>
+            on:click={() => setTp('fontStyle', tp.fontStyle === 'italic' ? 'normal' : 'italic')}><em>Italic</em>{fontStylesOf.italic ? '' : ' (Synthesized)'}</button>
         </div>
         <div class="svge-section">
           <div class="svge-section-head">Line</div>

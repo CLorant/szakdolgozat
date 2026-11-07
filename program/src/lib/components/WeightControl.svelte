@@ -38,7 +38,7 @@
   {#if !realBold}
     <button type="button" class="synth" class:active={synth} aria-pressed={synth}
       title="This font has no bold face: the letters are thickened instead"
-      on:click={() => onChange(synth ? heaviest : 700)}><strong>B</strong> Synthesized bold</button>
+      on:click={() => onChange(synth ? heaviest : 700)}><strong>Bold</strong> (Synthesized)</button>
   {/if}
 </div>
 
@@ -48,6 +48,7 @@
   .stepped.off { opacity: 0.45; }
   .stepped input { width: 100%; accent-color: var(--accent-color); }
   .name, .hint { font-size: 0.75rem; opacity: 0.7; white-space: nowrap; }
+  .name { width: 72px; }
   .synth {
     align-self: flex-start; height: 28px; padding: 0 10px; background: transparent; border: 1px solid var(--border-color);
     border-radius: 4px; color: var(--text-color); font-size: 0.75rem; cursor: pointer;
