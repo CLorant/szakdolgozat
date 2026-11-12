@@ -11,6 +11,8 @@ npm run check        # type checks (svelte-check + tsc)
 npm run build        # production build in dist/
 ```
 
+Before committing: `npm run check` (0 errors, 0 warnings) and `npm test` (all green).
+
 ## Where things go
 
 See [docs/architecture.md](docs/architecture.md). In short: the model and pure functions in `src/lib/utils`, state

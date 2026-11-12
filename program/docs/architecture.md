@@ -149,7 +149,8 @@ hostile nesting depth, an unknown type) and fill in defaults, so a damaged file 
 editor's), gradients in one `<defs>`, fonts per the export options. **Raster out** (`utils/exportDoc.ts`): the SVG is
 drawn into a canvas with all text converted to paths (fonts in an SVG image are unreliable), at least 4000 px wide by
 default. **SVG in** (`utils/svgImport.ts`): elements, transforms (a pure rotation stays a rotation, anything else is
-baked), styles and inheritance, gradients, `<use>`, text; unsupported features produce warnings.
+baked), styles and inheritance, gradients, `<use>`/`<symbol>`, `<switch>`, text; every unsupported feature (filters,
+clipping paths, masks, markers, blend modes, text on a path, SVG fonts, style sheets…) produces a warning.
 
 **Clipboard** (`utils/clipboard.ts`, `utils/clipboardActions.ts`): a copy writes the shapes to localStorage (for
 other tabs, full fidelity) and SVG text tagged with a nonce to the system clipboard (for other programs). Pasting

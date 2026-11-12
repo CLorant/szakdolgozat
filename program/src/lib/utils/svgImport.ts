@@ -11,8 +11,10 @@
  *   ✔ linear / radial gradients (bounding-box or user-space units, gradientTransform, href chains; focal points and
  *     spread methods are dropped)
  *   ✔ <image> with a data: or http(s) URL (a mirroring transform becomes flipX)
- *   ✘ patterns (→ grey), <style> stylesheets, clip/mask/filter;
- *     paths that mix open and closed sub-paths are split into one shape per subpath
+ *   ✔ <switch>: only the first child whose conditions hold (systemLanguage), as a browser shows it
+ *   ✘ patterns (→ grey), <style> stylesheets, clip/mask/filter, markers, blend modes, text on a path, <tref>,
+ *     SVG fonts: left out WITH a warning each; stroked paths that mix open and closed sub-paths are split into
+ *     one shape per subpath (without a stroke they stay one compound path: the fill is the same)
  * Rects/ellipses/lines/text keep their type under translate/scale/uniform-rotate transforms;
  * under skew or flips they become paths. Warnings explain anything that was approximated.
  */
@@ -201,6 +203,17 @@ function pureRotation(m: Matrix): { theta: number; cx: number; cy: number } | nu
   return { theta, cx: ((1 - a) * e - b * f) / k, cy: (b * e + (1 - a) * f) / k };
 }
 
+/** SVG conditional processing for <switch>: systemLanguage against the browser's languages; extensions are never supported. */
+function conditionsHold(el: Element): boolean {
+  if (el.hasAttribute('requiredExtensions')) return false;
+  const langs = el.getAttribute('systemLanguage');
+  if (langs === null) return true;
+  const mine = (typeof navigator !== 'undefined' ? [...(navigator.languages ?? []), navigator.language] : ['en'])
+    .filter(Boolean).map(l => l.toLowerCase());
+  return langs.split(',').map(l => l.trim().toLowerCase()).filter(Boolean)
+    .some(l => mine.some(m => m === l || m.startsWith(l + '-') || l.startsWith(m + '-')));
+}
+
 // ── importer ──────────────────────────────────────────────────────────────────
 
 const SKIP = new Set([
@@ -238,6 +251,7 @@ class Importer {
     if ((st['display'] ?? el.getAttribute('display')) === 'none') return;
     if (['hidden', 'collapse'].includes(st['visibility'] ?? el.getAttribute('visibility') ?? '')) return;
 
+    this.unsupported(el, st);
     const m = multiply(ctx.m, parseTransform(el.getAttribute('transform')));
     const paint = resolvePaint(el, ctx.paint, this.warn);
     const op = num(st['opacity'] ?? el.getAttribute('opacity'));
@@ -246,9 +260,14 @@ class Importer {
 
     switch (tag) {
       case 'g': return this.group(el, ctx, next, m, depth, op === null ? 1 : Math.min(1, Math.max(0, op)));
-      case 'a': case 'switch':
+      case 'a':
         for (const c of Array.from(el.children)) this.walk(c, next, depth + 1);
         return;
+      case 'switch': {                                     // a browser shows only the first child whose conditions hold
+        const pick = Array.from(el.children).find(conditionsHold);
+        if (pick) this.walk(pick, next, depth + 1);
+        return;
+      }
       case 'svg': {
         const t = multiply(m, [1, 0, 0, 1, num(el.getAttribute('x')) ?? 0, num(el.getAttribute('y')) ?? 0]);
         for (const c of Array.from(el.children)) this.walk(c, { ...next, m: t }, depth + 1);
@@ -263,6 +282,20 @@ class Importer {
       case 'path': return this.path(el, next);
       case 'text': return this.text(el, next);
     }
+  }
+
+  /** Features the model cannot represent: left out, with one warning each. */
+  private unsupported(el: Element, st: Record<string, string>) {
+    const used = (name: string) => {
+      const v = (st[name] ?? el.getAttribute(name) ?? '').trim();
+      return v !== '' && v !== 'none';
+    };
+    if (used('filter')) this.warn('Filters are not supported — they were left out.');
+    if (used('clip-path')) this.warn('Clipping paths are not supported — the clipped shapes are shown whole.');
+    if (used('mask')) this.warn('Masks are not supported — the masked shapes are shown without the mask.');
+    if (['marker', 'marker-start', 'marker-mid', 'marker-end'].some(used)) this.warn('Markers (e.g. arrowheads) are not supported — they were left out.');
+    const blend = (st['mix-blend-mode'] ?? el.getAttribute('mix-blend-mode') ?? '').trim();
+    if (blend && blend !== 'normal') this.warn('Blend modes are not supported — the shapes are drawn normally.');
   }
 
   // — helpers —
@@ -390,7 +423,10 @@ class Importer {
     };
   }
 
-  private push(shape: Shape) { if (!this.full()) { this.shapes.push(shape); this.count++; } }
+  /** Adds a shape unless the limit is reached. A group is always kept: its children were already counted. */
+  private push(shape: Shape) { if (shape.type === 'group' || !this.full()) { this.shapes.push(shape); this.count++; } }
+  /** True when the shape limit stopped the import. */
+  get limited() { return this.full(); }
 
   /** Runs `fn`, collecting everything it pushes into a separate list. */
   private collect(fn: () => void): Shape[] {
@@ -547,18 +583,23 @@ class Importer {
     if (!d) return;
     const subs = parsePathData(d);
     const st = this.style(ctx.paint, ctx.m);
-    if (subs.length > 1 && subs.every(sp => sp.closed)) {             // donuts, glyphs: ONE compound path
+    // Donuts, glyphs: ONE compound path. Without a stroke, open sub-paths can join it too: a fill closes every
+    // sub-path anyway, and keeping them together keeps the holes they make.
+    const noStroke = st.stroke === 'none' || !(st.strokeWidth > 0);
+    if (subs.length > 1 && (subs.every(sp => sp.closed) || noStroke)) {
       const shape = makePath(joinContours(subs.map(sp => transformNodes(sp.nodes, ctx.m))), true, st, true);
       if (ctx.paint.fillRule === 'evenodd') shape.fillRule = 'evenodd';
       return void this.push(this.finish(shape, el, ctx));
     }
-    if (subs.length > 1) this.warn('Paths mixing open and closed sub-paths were split into separate shapes.');
+    if (subs.length > 1) this.warn('Stroked paths mixing open and closed sub-paths were split into separate shapes.');
     for (const sp of subs) {
       this.push(this.finish(makePath(transformNodes(sp.nodes, ctx.m), sp.closed, st, true), el, ctx));
     }
   }
 
   private text(el: Element, ctx: Ctx) {
+    if (el.getElementsByTagName('textPath').length) this.warn('Text on a path is not supported — the text was placed on a straight line.');
+    if (el.getElementsByTagName('tref').length) this.warn('Text references (<tref>) are not supported — the referenced text was left out.');
     const preserve = (el.getAttribute('xml:space') ?? el.getAttributeNS('http://www.w3.org/XML/1998/namespace', 'space')) === 'preserve'
       || /white-space\s*:\s*pre/.test(el.getAttribute('style') ?? '');
     const lines: string[] = [''];
@@ -657,7 +698,10 @@ export function importSvg(text: string, opts: ImportOptions = {}): ImportResult 
   const max = opts.maxShapes ?? 5000;
   const imp = new Importer(root, max);
   imp.run(root, m);
-  if (imp.shapes.length >= max) imp.warnings.add(`Import stopped at ${max} shapes.`);
+  if (imp.limited) imp.warnings.add(`Import stopped at ${max} shapes.`);
+  if (doc.getElementsByTagName('font').length) imp.warnings.add('SVG fonts are not supported — the text uses a regular font.');
+  if (['animate', 'animateTransform', 'animateMotion', 'set'].some(t => doc.getElementsByTagName(t).length))
+    imp.warnings.add('Animations are not supported — the drawing is imported as it looks before the animation starts.');
   if ([...doc.getElementsByTagName('style')].some(s => /(^|})\s*[^@{}\s][^{}]*\{/.test(s.textContent ?? ''))) {
     imp.warnings.add('CSS stylesheets (<style> rules) are not applied.');
   }

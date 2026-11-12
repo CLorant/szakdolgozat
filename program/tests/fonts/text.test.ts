@@ -100,8 +100,14 @@ describe('font styles (weights the family really has)', () => {
     const thin = pathBounds((await outlineText(T({ fontFamily: 'sans-serif', fontWeight: 100 })))!.nodes, true);
     const black = pathBounds((await outlineText(T({ fontFamily: 'sans-serif', fontWeight: 900 })))!.nodes, true);
     expect(black.width).toBeGreaterThan(thin.width + 10);
-    const r = (await outlineText(T({ fontFamily: 'cursive', content: 'ő' })))!;
+    const r = (await outlineText({ ...T({ fontFamily: 'cursive' }), content: 'ő' } as TextShape))!;
     expect(r.missing).toBe(0);                                           // Comic Neue has no ő: the bundled sans fills in
+  });
+  it('a space after a fallback character keeps the chosen font\'s width, as in the browser', async () => {
+    const w = async (content: string) => pathBounds((await outlineText({ ...T({ fontFamily: 'cursive' }), content } as TextShape))!.nodes, true).width;
+    const afterFallback = (await w('ő H')) - (await w('őH'));           // ő comes from the bundled sans
+    const afterOwn = (await w('o H')) - (await w('oH'));                 // o is Comic Neue's own
+    expect(afterFallback).toBeCloseTo(afterOwn, 1);
   });
   it('word spacing, line height, decorations and flips reach the outline', async () => {
     const plain = pathBounds((await outlineText(T({ fontFamily: 'sans-serif' })))!.nodes, true);

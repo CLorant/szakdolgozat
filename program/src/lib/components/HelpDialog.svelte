@@ -65,13 +65,12 @@
     </section>
   </div>
   <section class="tips">
-    <h3>Hints</h3>
+    <h3>Tips</h3>
     <ul>
       <li>Your work is saved automatically in this browser. Use <b>File → Save project</b> to download the project file.</li>
       <li>Drag from a ruler to place a guide; drag it back onto the ruler to remove it.</li>
       <li>In the Objects panel, drag a row to reorder (touch: hold it first).</li>
       <li>Click the color swatch next to the sliders for the recent colors and the colors already in the drawing.</li>
-      <li>Text converts to paths exactly as drawn, so the file looks the same without the fonts.</li>
     </ul>
   </section>
   <footer class="foot">

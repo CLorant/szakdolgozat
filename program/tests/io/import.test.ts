@@ -112,4 +112,50 @@ describe('colors', () => {
     expect(n('rgb(255, 0, 128)')).toBe('#ff0080'); expect(n('rgba(0,0,0,0.5)')).toBe('#00000080');
     expect(n('none')).toBe('none'); expect(n('currentColor')).toBe('#123456'); expect(n('navy')).toBe('#000080');
   });
+
+  it('warns about filters, clipping paths, masks, markers and blend modes it leaves out (but not about "none")', () => {
+    const r = importSvg(wrap(
+      '<rect width="5" height="5" filter="url(#f)"/><rect width="5" height="5" clip-path="url(#c)"/>' +
+      '<rect width="5" height="5" style="mask:url(#m)"/><path d="M0 0 L5 5" stroke="#000" style="marker-end:url(#a)"/>' +
+      '<rect width="5" height="5" style="mix-blend-mode:multiply"/><rect width="5" height="5" style="filter:none;marker:none"/>'));
+    const w = r.warnings.join('\n');
+    expect(w).toMatch(/Filters/); expect(w).toMatch(/Clipping/); expect(w).toMatch(/Masks/);
+    expect(w).toMatch(/Markers/); expect(w).toMatch(/Blend modes/);
+    expect(r.shapes).toHaveLength(6);
+    expect(importSvg(wrap('<rect width="5" height="5" style="filter:none;clip-path:none;marker-start:none"/>')).warnings).toEqual([]);
+  });
+  it('<switch> shows only the first child whose conditions hold', () => {
+    const r = importSvg(wrap('<switch><text systemLanguage="xx-unknown" x="0" y="10">nope</text><text x="0" y="10">fallback</text><text x="0" y="10">third</text></switch>'));
+    expect(r.shapes).toHaveLength(1);
+    expect((r.shapes[0] as any).content).toBe('fallback');
+  });
+  it('warns about text on a path, <tref> and SVG fonts', () => {
+    const r = importSvg(wrap('<defs><path id="p" d="M0 0 L100 0"/><font id="f"></font></defs><text><textPath href="#p">along</textPath></text>'));
+    expect(r.warnings.join('\n')).toMatch(/Text on a path/);
+    expect(r.warnings.join('\n')).toMatch(/SVG fonts/);
+  });
+  it('warns about animations and keeps the shape as it looks before the animation', () => {
+    const r = importSvg(wrap('<rect width="5" height="5" fill="red"><animate attributeName="fill" to="blue" dur="1s"/></rect>'));
+    expect(r.shapes).toHaveLength(1);
+    expect(r.warnings.join('\n')).toMatch(/Animations are not supported/);
+    expect(importSvg(wrap('<rect width="5" height="5"/>')).warnings).toEqual([]);
+  });
+  it('without a stroke, open and closed sub-paths stay ONE compound path (the holes survive)', () => {
+    const d = 'M0 0 L10 0 L10 10 L0 10 Z M2 2 L8 2 L8 8 L2 8';      // the inner square is not closed with Z
+    const filled = importSvg(wrap(`<path d="${d}" fill="#000" fill-rule="evenodd"/>`));
+    expect(filled.shapes).toHaveLength(1);
+    expect(filled.shapes[0]).toMatchObject({ type: 'path', closed: true, fillRule: 'evenodd' });
+    expect(filled.warnings).toEqual([]);
+    const stroked = importSvg(wrap(`<path d="${d}" fill="none" stroke="#000"/>`));
+    expect(stroked.shapes).toHaveLength(2);
+    expect(stroked.warnings.join()).toMatch(/split/);
+  });
+  it('a group that reaches the shape limit is kept (partly) and the limit is reported', () => {
+    const many = Array.from({ length: 30 }, (_, i) => `<rect x="${i}" width="1" height="1"/>`).join('');
+    const r = importSvg(wrap(`<g id="layer">${many}</g>`), { maxShapes: 10 });
+    expect(r.shapes).toHaveLength(1);
+    expect(r.shapes[0].type).toBe('group');
+    expect((r.shapes[0] as any).children.length).toBe(10);
+    expect(r.warnings.join()).toMatch(/stopped at 10/);
+  });
 });

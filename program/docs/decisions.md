@@ -8,11 +8,14 @@ purpose; [architecture.md](architecture.md) describes how the result works.
 **Svelte 5 + TypeScript, no UI framework, no server.** The editor is a single-page app that runs entirely in the
 browser; files are read and written through the browser. Svelte's stores give a small, explicit state layer, and the
 compiler keeps the runtime small. A component library was not used: an editor's controls (color picker, sliders,
-handles, the Objects list) are specialised anyway, and a library would bring its own look and weight.
+handles, the Objects list) are specialised anyway, and a library would bring its own look and weight. *Rejected:*
+React (more runtime and boilerplate for the same result), Bootstrap (an early version used it; it fought the dense
+editor layout and was removed).
 
 **One action layer (`editor.ts`) between the UI and the document.** Every change goes through a named action that
 commits one history step. Panels, menus, the command bar, the context menu and the tools therefore behave the same
-way and are tested once.
+way and are tested once. *Rejected:* one large store that components changed directly (the editor's first version), which
+made consistent undo steps hard and spread the same logic over several components.
 
 **Tools as plain objects driven by `PointerInfo`.** A tool receives document coordinates, modifiers and the hit
 target, and calls actions; it never touches the DOM. Tools can be unit-tested by feeding them synthetic events.
@@ -53,7 +56,9 @@ it. CSS borders and Inkscape behave the same way.
 ## Geometry operations
 
 **paper.js for boolean operations and cuts.** It computes unions, differences and intersections on the Bézier
-curves themselves, so two united circles keep a handful of curved, editable nodes.
+curves themselves, so two united circles keep a handful of curved, editable nodes. *Rejected:* polygon-clipping and
+clipper2-ts, which flatten every curve into hundreds of corner nodes. paper.js is larger (about 110 KB gzip) and is
+loaded only when first needed.
 
 **Cutting an area = intersection and difference with a region built from the knife.** A line has no area, so the
 knife is extended past both ends and closed around one side; the two pieces are `shape ∩ region` and
@@ -74,7 +79,8 @@ its industry-standard name.
 **Pen and Arc draw one path; arcs chain.** A shape often mixes straight lines, curves and arcs (a rounded
 bracket, a keyhole). One shared draft lets B and A switch tools mid-path, and every arc starts where the previous
 segment ended, so the Arc tool works like the Pen: add segments, finish with a double-click, Enter or Esc, close on
-the first point.
+the first point. *Rejected:* tangent-only chained arcs (one click per arc, as in CAD): faster for S-curves, but a
+corner between two arcs would need a modifier, and the 3-point gesture is the same for the first and every next arc.
 
 **Open paths continue from a selected path's end only.** Pen, Arc and Freehand extend a path when started on one
 of its ends, as in Inkscape. Restricting it to the selected path keeps the common case (drawing a new path from a
@@ -104,9 +110,9 @@ by about 40 % of pixels); fontkit does full OpenType shaping and matches the bro
 rotation origin, gradient definitions in the editor's form) without private extensions. The project file is strictly
 validated on load.
 
-**Preferences saved in the browser.** Grid, snapping, panel sizes and similar settings are saved in localStorage
-alongside the latest autosave, so a project looks the same wherever it is opened. Ruler guides are the exception:
-they belong to a drawing and are saved in the project (never exported).
+**Preferences in the browser, not in the project.** Grid, snapping, panel sizes and similar settings describe how a
+person works, not what they drew, so they follow the person (localStorage) and a project looks the same wherever it
+is opened. Ruler guides are the exception: they belong to a drawing and are saved in the project (never exported).
 
 **Clipboard: the system clipboard first.** Every copy in the editor also writes the system clipboard, so whatever is
 there is never older than the editor's own copy. Pasting takes, in order: the editor's tagged SVG (full fidelity

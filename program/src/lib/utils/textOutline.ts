@@ -192,13 +192,15 @@ export async function outlineText(s: TextShape): Promise<OutlineResult | null> {
   const fontFor = (ch: string): Font | null => has(font, ch) ? font : fallbacks.find(f => has(f, ch)) ?? null;
 
   content.split('\n').forEach((raw, i) => {
-    // consecutive characters of one font form a run; characters in no font are left out and counted
+    // consecutive characters of one font form a run; characters in no font are left out and counted.
+    // Like the browser's per-character font matching, a space takes the chosen font even between two
+    // fallback characters, so its width matches the on-screen text.
     const runs: { font: Font; text: string }[] = [];
     for (const ch of raw) {
       const f = fontFor(ch);
       if (!f) { missing++; continue; }
       const last = runs[runs.length - 1];
-      if (last && (last.font === f || /\s/.test(ch))) last.text += ch;
+      if (last && last.font === f) last.text += ch;
       else runs.push({ font: f, text: ch });
     }
     const line = runs.map(r => r.text).join('');
