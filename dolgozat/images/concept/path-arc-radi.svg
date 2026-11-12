@@ -18,9 +18,7 @@ fill="none" stroke="blue" stroke-width="3"/>
   <text x="35" y="35" font-size="12">rx</text>
    <text x="55" y="55" font-size="12">ry</text>
   <path d="
-                M 5,50
-                L 25,50
+                M 25,50
                 A 29.5,50 0 0 0 75,50
-                L 95,50
               " fill="none" stroke="blue" stroke-width="3"></path>
 </svg>

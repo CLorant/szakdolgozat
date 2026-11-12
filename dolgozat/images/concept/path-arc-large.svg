@@ -18,15 +18,11 @@
   <g transform="translate(0,-30)">
     <path d="
                 M 25,50
-                L 25,50
                 A 29.5,50 25 0 0 75,50
-                L 95,50
               " fill="none" stroke="black" stroke-dasharray="5 5"></path>
   <path d="
-                M 5,50
-                L 25,50
+                M 25,50
                 A 29.5,50 25 1 0 75,50
-                L 95,50
               " fill="none" stroke="blue" stroke-width="3"></path>
   </g>
 </svg>

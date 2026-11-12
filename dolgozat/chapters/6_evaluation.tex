@@ -1,0 +1,141 @@
+\chapter{Az eredmények értékelése}
+\label{ch:evaluation}
+
+Ez a fejezet azt vizsgálja, mennyiben teljesültek \aref{sub:editor_conclusions}. alszakasz célkitűzései és \aref{sec:requirements}. szakasz követelményei, mit mutatnak a két legfontosabb funkció mérései, hogyan viszonyul az elkészült szerkesztő \aref{sec:svg_editors}. szakaszban vizsgált alkalmazásokhoz, és milyen nem várt tapasztalatokkal járt a fejlesztés.
+
+\section{A követelmények teljesülése}
+\label{sec:req_fulfilment}
+
+\Aref{tab:fulfilment}. táblázat a funkcionális követelmények teljesülését foglalja össze. A követelmények többsége teljesült, kettő részben, a korlátozásokat a megjegyzés oszlop nevezi meg.
+
+\begin{table}[!ht]
+\caption{A funkcionális követelmények teljesülése}
+\label{tab:fulfilment}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{|l|>{\raggedright\arraybackslash}p{0.2\textwidth}|l|>{\raggedright\arraybackslash}p{0.47\textwidth}|}
+\hline
+\textbf{Az.} & \textbf{Terület} & \textbf{Teljesülés} & \textbf{Megjegyzés} \\ \hline
+F1 & Elrendezés & teljesült & \\ \hline
+F2 & Rajzolás & teljesült & \\ \hline
+F3 & Tulajdonságok & teljesült & több elforgatott alakzat nem arányos méretezése közelítés \\ \hline
+F4 & SVG-kód & teljesült & a kódszerkesztő a terv szerint kimaradt \\ \hline
+F5 & Szöveg & részben & a vegyes írásirányú szöveg nem alakítható útvonallá \\ \hline
+F6 & Színek & teljesült & \\ \hline
+F7 & Útvonalak & teljesült & a körvonal útvonallá alakítása sokszöget ad \\ \hline
+F8 & Illesztés, igazítás & teljesült & \\ \hline
+F9 & Objektumok & teljesült & \\ \hline
+F10 & Kijelölés & teljesült & \\ \hline
+F11 & Vágólap & teljesült & \\ \hline
+F12 & Nagyítás & teljesült & \\ \hline
+F13 & Visszavonás & teljesült & legfeljebb kétszáz lépés \\ \hline
+F14 & Mentés & teljesült & a böngésző tárolójának mérete korlátozott \\ \hline
+F15 & Import, export & részben & minták, vágóútvonalak, maszkok, szűrők, jelölők, keverési módok és stíluslapok nélkül, figyelmeztetéssel \\ \hline
+\end{tabular}
+\end{table}
+
+A hat célkitűzés közül az első, a második, az ötödik és a hatodik teljesült. A szerkesztő telepítés, regisztráció és szerver nélkül fut a böngészőben, a rajzoló és szerkesztő eszközei között ott van a teljes útvonalszerkesztés és mind az öt logikai művelet, a kimenete szabványos SVG vagy raszteres kép, és telefonon is kezelhető. A harmadik cél a vegyes írásirányú szövegek kivételével teljesült. A negyedik cél, az importált fájlok korlátainak jelzése \aref{sec:import_study}. alszakasz mérése szerint a vizsgált fájlok döntő többségénél teljesült, maga az importálás azonban nem kezel minden SVG-szerkezetet. \Aref{tab:import}. táblázat felsorolja, melyek ezek, így egy bemeneti fájlról előre eldönthető, milyen korlátozásokkal szerkeszthető.
+
+A nem funkcionális követelmények is teljesültek. A geometriai számításokat, az előzményeket és a fájlkezelést 447 automatikus teszt ellenőrzi, az érintéses fogantyúk mérete megfelel a WCAG 2.2 célméretre vonatkozó előírásának, a sérült projektfájlok pedig nem okoznak hibát. A felület Chromium-alapú böngészőkben és Firefoxban működik, Safari böngészőben nem teszteltem.
+
+\section{Mérések}
+\label{sec:measurements}
+
+Két célkitűzés teljesülése számszerűen is ellenőrizhető. Az importálónak minden olyan szerkezetről szólnia kell, amelyet nem tud pontosan átvenni, a szöveg útvonallá alakításának pedig a képernyőn látott szöveget kell visszaadnia. Mindkét mérés a fejlesztői szerveren futó szerkesztő saját moduljait hívja egy Playwright programkönyvtárral vezérelt Chromium böngészőben, hálózati hozzáférés nélkül, így pontosan a dolgozatban leírt kódot méri. A mérőszkriptek és a felhasznált fájlok listája a mellékelt adathordozón, a \texttt{program/eval} mappában található.
+
+\subsection{Az importálás pontossága valós fájlokon}
+\label{sec:import_study}
+
+Az importáló tesztjei kézzel írt, rövid SVG-részleteket használnak. Hogy valódi, más programokkal készült fájlokon hogyan viselkedik, azt hét forrásból vett 140 fájlon vizsgáltam. Az Inkscape 1.2.2 példafájljai és angol nyelvű oktatóanyagai szándékosan sokféle SVG-szerkezetet mutatnak be, köztük szűrőket, maszkokat és jelölőket. Mellettük négy ikonkészletből és egy zászlógyűjteményből húsz-húsz véletlenszerűen kiválasztott fájl került a mintába, ezek a webes felhasználás jellemző, egyszerűbb fájljai. A csomagok pontos változatát \aref{tab:import-study}. táblázat adja meg.
+
+Minden fájlt a szerkesztő importált, majd az eredményt szabványos SVG-ként exportálta. Az eredeti és az exportált fájlt a böngésző fehér háttérre, 400 képpontos hosszabbik oldallal képpé rajzolta. Egy képpontot akkor tekintettem a rajzhoz tartozónak, ha valamelyik színcsatornája legalább 40 egységgel sötétebb a fehérnél valamelyik képen, és akkor eltérőnek, ha a két kép színcsatornáinak legnagyobb különbsége 64-nél nagyobb. A mérőszám az eltérő képpontok aránya a rajzhoz tartozó képpontokhoz képest. Az 1\% alatti eltérés jellemzően a vonalak élsimításából adódik, szemmel nem látható. \Aref{tab:import-study}. táblázat az eredményeket foglalja össze.
+
+\begin{table}[!ht]
+\caption{Az importálás pontossága forrásonként; az eltérés az eltérő képpontok aránya a rajz képpontjaihoz képest}
+\label{tab:import-study}
+\centering
+\footnotesize
+\begin{tabular}{|l|r|>{\raggedleft\arraybackslash}p{2.0cm}|>{\raggedleft\arraybackslash}p{1.8cm}|>{\raggedleft\arraybackslash}p{1.5cm}|>{\raggedleft\arraybackslash}p{1.8cm}|}
+\hline
+\textbf{Forrás} & \textbf{Fájl} & \textbf{Figyelmez\-tetés nélkül} & \textbf{1\% alatti eltérés} & \textbf{Medián eltérés} & \textbf{Legna\-gyobb eltérés} \\ \hline
+Inkscape 1.2.2, példák & 28 & 4 & 5 & 21,5\% & 81,9\% \\ \hline
+Inkscape 1.2.2, oktatóanyagok & 11 & 0 & 0 & 2,8\% & 53,6\% \\ \hline
+Bootstrap Icons 1.13.2 & 20 & 20 & 20 & 0,0\% & 0,1\% \\ \hline
+Tabler Icons 3.51.0 & 20 & 20 & 20 & 0,0\% & 0,6\% \\ \hline
+Simple Icons 16.37.0 & 20 & 20 & 20 & 0,0\% & 0,2\% \\ \hline
+Twemoji 15.0.0 & 20 & 20 & 20 & 0,0\% & 0,0\% \\ \hline
+flag-icons 7.6.0 & 20 & 9 & 18 & 0,0\% & 3,4\% \\ \hline
+\textbf{Összesen} & \textbf{139} & \textbf{93} & \textbf{103} & & \\ \hline
+\end{tabular}
+\end{table}
+
+A négy ikonkészlet mind a nyolcvan fájlja figyelmeztetés nélkül és gyakorlatilag változatlanul kerül át. A zászlók közül tizennyolc 1\% alatti eltéréssel jelenik meg, tizenegynél figyelmeztetés szól, öt esetben vágóútvonal, nyolc esetben körvonalas útvonal szétválasztása miatt. Az Inkscape fájljainál a nagy eltérés várható, hiszen ezek éppen azokat a szerkezeteket mutatják be, amelyeket a szerkesztő nem támogat. A teljes mintában a leggyakoribb figyelmeztetés a szűrőkről szól, tizenkilenc fájlban, ezt a körvonalas útvonalak szétválasztása követi tizenöt fájlban.
+
+A célkitűzés szempontjából az a döntő, hogy figyelmeztetés nélkül nagy eltérés ne fordulhasson elő. A 139 fájlból három tér el 5\%-nál jobban úgy, hogy az importáló nem jelez semmit. Kettőnél csak a vékony vonalak és az apró szöveg élsimítása különbözik, a két kép szemmel nem különböztethető meg. A harmadiknál, az Inkscape \texttt{stars.svgz} példájánál egyes összetett útvonalak kitöltése valóban eltér, ennek okát nem sikerült feltárnom. Ez az importáló egyetlen ismert, jelzés nélküli hibája a mintában.
+
+\subsection{A szöveg útvonallá alakításának pontossága}
+\label{sec:text_accuracy}
+
+A szöveg útvonallá alakításának mérésekor egy egysoros, 72 képpontos szöveg került a vászonra 100\%-os nagyításon. A szerkesztő vásznáról a böngésző által kirajzolt szövegről, majd az útvonallá alakítás után az eredményről is képernyőkép készült. A két képet az importálás méréséhez hasonlóan vetettem össze, rajzhoz tartozónak a 215-nél sötétebb szürke árnyalatot tekintve. A szöveg, az \textit{Árvíztűrő tükörfúrógép AVATAR fi}, magyar ékezetes betűket, alávágott betűpárokat és egy \textit{fi} ligatúrát is tartalmaz. A mérés az öt általános betűcsaládra terjed ki, amelyekhez a szerkesztő saját betűtípust szállít. A Google Fonts és a helyi betűtípusok pontosságát ez a mérés nem vizsgálja. Az eredményeket \aref{tab:text-accuracy}. táblázat tartalmazza.
+
+\begin{table}[!ht]
+\caption{A szöveg útvonallá alakításának eltérése a képernyőn látott szövegtől}
+\label{tab:text-accuracy}
+\centering
+\footnotesize
+\begin{tabular}{|l|l|r|r|}
+\hline
+\textbf{Betűcsalád} & \textbf{Szállított betűtípus} & \textbf{Normál (400)} & \textbf{Félkövér (700)} \\ \hline
+\texttt{serif} & Noto Serif & 0,14\% & 1,77\% \\ \hline
+\texttt{sans-serif} & Noto Sans & 0,09\% & 0,94\% \\ \hline
+\texttt{monospace} & Noto Sans Mono & 0,09\% & 0,17\% \\ \hline
+\texttt{fantasy} & Anton & 0,03\% & 0,02\% \\ \hline
+\texttt{cursive} & Comic Neue & 0,22\% & 0,07\% \\ \hline
+\end{tabular}
+\end{table}
+
+Az eltérés minden esetben 2\% alatt marad, a legnagyobb a félkövér Noto Serif betűtípusnál. A mintaszöveg a hiányzó karakterek pótlását is próbára teszi. A Comic Neue betűtípusból hiányzik az \textit{ő} és az \textit{ű}, ezeket a szerkesztő a képernyőn és az útvonallá alakításkor is a Noto Sans betűtípusból veszi. A böngészőhöz hasonlóan az útvonallá alakítás is karakterenként választ betűtípust, így a pótolt betű utáni szóköz a Comic Neue betűtípusé marad, és a sor további része nem csúszik el.
+
+\section{Összevetés a vizsgált szerkesztőkkel}
+\label{sec:comparison_result}
+
+\Aref{tab:own-comparison}. táblázat \aref{tab:svg-editors-comparison}. táblázat szempontjai szerint mutatja be az elkészült szerkesztőt, és mindegyik szempontnál megadja, melyik vizsgált alkalmazáshoz áll a legközelebb.
+
+\begin{table}[!ht]
+\caption{Az elkészült szerkesztő az összehasonlítás szempontjai szerint}
+\label{tab:own-comparison}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{0.17\textwidth}|>{\raggedright\arraybackslash}p{0.36\textwidth}|>{\raggedright\arraybackslash}p{0.36\textwidth}|}
+\hline
+\textbf{Szempont} & \textbf{Solid SVG} & \textbf{Összevetés} \\ \hline
+Platform & webes, telepítés és regisztráció nélkül & az SVG-Edithez hasonlóan ingyenes és böngészőben fut \\ \hline
+Elrendezés & klasszikus, helyzetfüggő parancssávval, telefonon alulról nyíló panellel & a klasszikus elrendezésű Inkscape, SVG-Edit és Boxy SVG csoportjába tartozik \\ \hline
+SVG-kód & nincs kódnézet & elmarad az Inkscape, az SVG-Edit és a Boxy SVG mögött \\ \hline
+Szöveg & többsoros, Google Fonts és helyi betűtípusok, útvonallá alakítás & az SVG-Editnél többet tud, útvonalra illesztés nincs, ebben az Inkscape és a Boxy SVG előtte jár \\ \hline
+Színek & HEX, RGB, HSL, átlátszóság & a Figmához és az SVG-Edithez hasonló, CMYK nincs \\ \hline
+Színátmenet, minta & lineáris és sugárirányú színátmenet & az SVG-Edit szintje, minta nincs \\ \hline
+Útvonalak & teljes csomópont-szerkesztés, körív, olló & az Inkscape és a Boxy SVG alapfunkcióival egyező \\ \hline
+Logikai műveletek & unió, különbség, metszet, kizárás, felosztás & megegyezik az Inkscape és a Boxy SVG kínálatával \\ \hline
+Illesztés & rács, segédvonalak, más alakzatok & az Inkscape-hez és a Boxy SVG-hez hasonló \\ \hline
+Objektumok & objektumfa, zárolás, elrejtés, külön rétegek nélkül & a Figma rétegfájához hasonló \\ \hline
+Előzmények, mentés & előzménypanel, automatikus mentés a böngészőbe, projektfájl & az Inkscape-hez hasonló, felhőmentés nincs \\ \hline
+\end{tabular}
+\end{table}
+
+Az összevetés szerint a szerkesztő az útvonalak szerkesztésében és a logikai műveletekben lefedi az Inkscape és a Boxy SVG alapfunkcióit, és ezen a téren többet nyújt a vizsgált egyszerűbb webes eszközöknél, az SVG-Editnél és a Mediamodifiernél. Az Inkscape ugyanakkor számos további eszközt kínál, például útvonaleffektusokat és hálós színátmenetet, ezek nem voltak célja a szerkesztőnek. A kódnézet, a minták, a szöveg útvonalra illesztése és a CMYK színmegadás hiányzik belőle, ezekben a két nagy tudású szerkesztő előtte jár. Saját megoldásként emelném ki a szöveg útvonallá alakítását, amely a böngészővel azonos szövegszedést használ, és a hiányzó betűtípust sosem helyettesíti csendben egy másikkal, valamint az importálót, amely minden kihagyott vagy közelített szerkezetet megnevez.
+
+\newpage
+\section{Nem várt tapasztalatok}
+\label{sec:unexpected}
+
+A fejlesztés során több olyan probléma is felmerült, amelyet a tervezéskor nem láttam előre. A legtöbb munkát a szöveg útvonallá alakítása adta, mert a betűk elrendezésének pontosan a böngészőét kell követnie, és ehhez az először kipróbált könyvtár nem bizonyult elég pontosnak (\ref{sec:text_impl}.~szakasz). A külső szolgáltatások és a böngészők is tartogattak meglepetést. A Google Fonts API egy nem létező stílus miatt az egész kérést elutasítja, az iOS Safari nem küldi el a helyi menü eseményét, a két ujjas nagyítás első érintése pedig egy felesleges csomópontot hozna létre, ha azonnal eljutna a toll eszközhöz (\ref{sec:touch}.~szakasz).
+
+Tanulságos volt az is, hogy \aref{sec:measurements}. szakasz mérései olyan hibákra is fényt derítettek, amelyeket a több száz automatikus teszt nem észlelt, hiszen azok csak azokat a bemeneteket ellenőrzik, amelyekre fejlesztőként én magam is gondoltam. A valós fájlok mutatták meg, hogy néhány nem támogatott szerkezetre, például a szűrőkre és a maszkokra, külön figyelmeztetés kell, és hogy a körvonal nélküli ikonok vegyes részútvonalait nem szabad szétválasztani, mert az eltünteti a lyukakat. A szövegmérésből derült ki, hogy a pótolt karakter utáni szóköz betűtípusát is a böngésző szabálya szerint kell megválasztani. Ezekhez az esetekhez automatikus tesztek is készültek.
+
+\section{Szakmai jelentőség és alkalmazhatóság}
+\label{sec:significance}
+
+Az elkészült szerkesztő a gyakorlatban is használható ikonok, logók, diagramok és egyszerű illusztrációk készítésére és módosítására, telepítés nélkül, asztali gépen és telefonon egyaránt. A kimenete szabványos SVG, ezért az eredmény más programokban is tovább szerkeszthető. Az alkalmazás egyes részei önállóan is hasznosak lehetnek. Az importáló, amely minden kihagyott szerkezetről figyelmeztet, egy SVG-fájl szerkeszthetőségének előzetes vizsgálatára is alkalmas, a szöveg útvonallá alakítása pedig olyan esetekben is használható, amikor egy SVG-fájlnak betűtípusok nélkül, minden környezetben ugyanúgy kell megjelennie. A hiányzó funkciók, elsősorban a kódnézet és a minták, maszkok és szűrők támogatása, \aref{ch:summary}. fejezetben felsorolt továbbfejlesztési lehetőségek közé tartoznak.

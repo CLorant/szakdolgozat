@@ -1,36 +1,64 @@
 \documentclass[12pt,a4paper]{report}
 
+%\includeonly{cover/cimlap, chapters/1_introduction}
+
 \usepackage{styles/dolgozat}
 
+% programkód beillesztéséhez
 \usepackage{listings}
+% listing float neve
+\renewcommand{\lstlistingname}{Programkód}
+%\renewcommand{\lstlistlistingname}{Programkódok listája}
+%saját listings style-ok, és a style-t használó parancsok definíciói
 \usepackage{styles/html}
 \usepackage{styles/javascript}
 \usepackage{styles/xml}
+\lstset{extendedchars=true, literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ö}{{\"o}}1 {ő}{{\H{o}}}1 {ú}{{\'u}}1 {ü}{{\"u}}1 {ű}{{\H{u}}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Ö}{{\"O}}1 {Ő}{{\H{O}}}1 {Ü}{{\"U}}1 {Ű}{{\H{U}}}1}
 
+%% egyéb csomagok betöltése itt, vagy a dolgozat.sty fájlban
 \usepackage{adjustbox}
+% kereshető, másolható szöveg a PDF-ben (ő, ű és ligatúrák helyes Unicode-megfeleltetése)
+\input{glyphtounicode}
+\pdfgentounicode=1
+% kódszavakat tartalmazó bekezdések tördelése
+\setlength{\emergencystretch}{2em}
+% hosszú URL-ek tördelése az irodalomjegyzékben
+\setcounter{biburlnumpenalty}{9000}
+\setcounter{biburllcpenalty}{7000}
+\setcounter{biburlucpenalty}{8000}
+\AtBeginBibliography{\sloppy}
+% ábrák rajzolásához (felület vázlata, architektúra)
+\usepackage{array}
+\usepackage[section]{placeins}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,fit,calc}
+% TypeScript kódrészletek stílusa
+\lstdefinelanguage{TypeScript}[ECMAScript2015]{JavaScript}{%
+  morekeywords=[1]{interface,type,readonly,keyof,as,satisfies,implements,private,public},%
+  morekeywords=[2]{string,number,void,unknown,Record,Map,Set,Promise,Partial,PathNode,Point,Shape}%
+}
+\lstdefinestyle{TS}{language=TypeScript, style=JSES6Base, basicstyle=\ttfamily\footnotesize,%
+  belowskip=\medskipamount, aboveskip=\medskipamount, frame=single, framesep=4pt,%
+  rulecolor=\color{lightgray}, captionpos=b, title={}}
 \usepackage{caption}
 \usepackage{float}
 
 \usepackage{hyperref}
+% cleveref csomag és beállításai -- az egyetlen, amit a hyperref után kell betölteni!
+\usepackage{styles/refs}
 
 \begin{document}
 
-\include{cover/cimlap}
-
-\newpage
-
 \pagestyle{empty}
+\pagenumbering{gobble}
 
+\include{cover/cimlap}
 \include{cover/feladatkiiras}
 
-\cleardoublepage
-\pagenumbering{gobble}
 \tableofcontents
-\cleardoublepage
+
+\clearpage
 \pagenumbering{arabic}
-
-\newpage
-
 \pagestyle{fancy}
 
 \include{chapters/1_introduction}
@@ -38,15 +66,16 @@
 \include{chapters/3_design}
 \include{chapters/4_implementation}
 \include{chapters/5_test}
-\include{chapters/6_summary}
+\include{chapters/6_evaluation}
+\include{chapters/7_summary}
 
-\clearpage
-
-\addcontentsline{toc}{chapter}{Irodalomjegyzék}
-\bibliographystyle{plain}
-\bibliography{dolgozat.bib}
-
-\newpage
+%biblatex verzió
+%a bibintoc heading stílussal megjelenik a tartalomjegyzékben, title-lel a megjelenő címsor szövege módosítható
+\printbibliography[heading=bibintoc,%
+title=Források]
+%sima bibtex verzió
+%\bibliographystyle{plain}
+%\bibliography{dolgozat.bib}
 
 \include{cover/hasznalati}
 

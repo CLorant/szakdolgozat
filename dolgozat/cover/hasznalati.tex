@@ -1,20 +1,31 @@
 \pagestyle{empty}
 
-\noindent \textbf{\Large CD Használati útmutató}
+\section*{A mellékelt adathordozó tartalma}
+% \addcontentsline{toc}{chapter}{A mellékelt adathordozó tartalma}
 
-\vskip 1cm
+Az adathordozó a következőket tartalmazza:
 
-Ennek a címe lehet például \textit{A mellékelt CD tartalma} vagy \textit{Adathordozó használati útmutató} is.
-
-Ez jellemzően csak egy fél-egy oldalas leírás.
-Arra szolgál, hogy ha valaki kézhez kapja a szakdolgozathoz tartozó CD-t, akkor tudja, hogy mi hol van rajta.
-Jellemzően elég csak felsorolni, hogy milyen jegyzékek vannak, és azokban mi található.
-Az elkészített programok telepítéséhez, futtatásához tartozó instrukciók kerülhetnek ide.
-
-A CD lemezre mindenképpen rá kell tenni
 \begin{itemize}
-\item a dolgozatot egy \texttt{dolgozat.pdf} fájl formájában,
-\item a LaTeX forráskódját a dolgozatnak,
-\item az elkészített programot, fontosabb futási eredményeket (például ha kép a kimenet),
-\item egy útmutatót a CD használatához (ami lehet ez a fejezet külön PDF-be vagy MarkDown fájlként kimentve).
+\item \texttt{dolgozat.pdf}: A dolgozat PDF formátumban.
+\item \texttt{hasznalati.pdf}: A használati útmutató PDF formátumban.
+\item \texttt{dolgozat/}: A dolgozat LaTeX forráskódja. Fordításához szükségesek a \texttt{pdflatex} és \texttt{bibtex} programok. Az \texttt{svg} csomag dependenciájaként az \texttt{Inkscape} program is szükséges. 
+\item \texttt{program/}: A szerkesztő teljes forráskódja a tesztekkel együtt. Az \texttt{src} mappa az alkalmazás kódját, a \texttt{tests} mappa az automatikus teszteket, a \texttt{docs} mappa az architektúra leírását, a tervezési döntéseket és egy angol nyelvű felhasználói útmutatót tartalmaz. A \texttt{dist} mappában az alkalmazás lefordított, éles változata, az \texttt{eval} mappában pedig \aref{sec:measurements}. szakasz mérőszkriptjei és a mérésekhez felhasznált fájlok listája található.
 \end{itemize}
+
+\subsection*{A szerkesztő futtatása telepítés nélkül}
+
+A \texttt{program/dist} mappa tartalmát bármely statikus webszerver kiszolgálhatja. Ha a gépen van Python 3, a mappában kiadott \texttt{python3 -m http.server 8000} parancs után a szerkesztő a \texttt{http://localhost:8000} címen nyitható meg. Az \texttt{index.html} fájl közvetlen megnyitása nem elég, mert a böngészők a \texttt{file://} címről betöltött JavaScript-modulokat biztonsági okból általában letiltják.
+
+\subsection*{Fordítás a forráskódból}
+
+A fordításhoz Node.js 20.19 vagy 22.12, illetve ezeknél újabb változat szükséges, ezt a Vite 7 írja elő. A \texttt{program} mappában kiadandó parancsok:
+
+\begin{description}
+\item[\texttt{npm install}] telepíti a függőségeket, ehhez internetkapcsolat szükséges;
+\item[\texttt{npm run dev}] elindítja a fejlesztői szervert, a szerkesztő a kiírt címen, alapértelmezés szerint a \texttt{http://localhost:5173} címen nyitható meg böngészőben;
+\item[\texttt{npm run build}] újra elkészíti az éles változatot a \texttt{dist} mappába;
+\item[\texttt{npm run preview}] helyben kiszolgálja az elkészült éles változatot;
+\item[\texttt{npm test}] lefuttatja az automatikus teszteket.
+\end{description}
+
+A szerkesztő egy Chromium-alapú böngészőben, például Google Chrome vagy Microsoft Edge alatt használható a legteljesebb funkcionalitással, mert a helyi betűtípusok elérése csak ezekben támogatott. A Google Fonts-betűtípusok letöltéséhez internetkapcsolat szükséges, a szerkesztő többi része hálózat nélkül is működik.

@@ -4,6 +4,8 @@
 | ----- | -------- |
 | **dolgozat/** | A szakdolgozat PDF fájlként, valamint a LaTeX-forráskódja. |
 | **program/** | A Solid SVG szerkesztő teljes forráskódja a tesztekkel együtt. |
+| **dolgozat.pdf** | A dolgozat PDF formátumban. |
+| **hasznalati.pdf** | A használati útmutató PDF formátumban. |
 
 ## Feladatkiírás
 
