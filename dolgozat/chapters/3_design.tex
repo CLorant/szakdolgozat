@@ -39,20 +39,20 @@ F15 & Import, export & SVG-fájlok és raszteres képek importálása, a nem tá
 \end{tabular}
 \end{table}
 
-Az F4 követelmény külön indoklást kíván, mert a szerkesztő nem tartalmaz kódszerkesztőt, holott \aref{sec:svg_editors}. szakaszban vizsgált programok közül három is kínál ilyet. A szerkesztő saját adatmodellel dolgozik, amelyet \aref{sec:data_model}. szakasz ír le, egy élő kódszerkesztőnek tehát minden begépelt változtatást ellenőriznie és erre a modellre kellene alakítania. Ez lényegében az importáló folyamatos futtatását jelentené, ezért a kódnézetet a továbbfejlesztési lehetőségek közé soroltam.
+Az F4 követelmény külön indoklást kíván, mert a szerkesztő nem tartalmaz kódszerkesztőt, holott \aref{sec:svg_editors}. szakaszban vizsgált programok közül három is kínál ilyet. A szerkesztő saját adatmodellel dolgozik, amelyet \aref{sec:data_model}. szakasz ír le. Egy élő kódszerkesztőnek tehát szükséges volna minden begépelt változtatást ellenőriznie és erre a modellre alakítania. Ez lényegében az importáló folyamatos futtatását jelentené, ezért a kódnézetet a továbbfejlesztési lehetőségek közé soroltam.
 
 \subsection{Nem funkcionális követelmények}
 
 Az első célkitűzésből következik, hogy az alkalmazás kizárólag a böngészőben futhat. A fájlok a felhasználó gépén maradnak, hálózatra csak a Google Fonts betűtípusainak letöltéséhez van szükség. A felületnek asztali gépen, táblagépen és telefonon is használhatónak kell lennie. Keskeny kijelzőn a tulajdonságpanel nem takarhatja el a rajzot, és az érintéssel használt fogantyúknak elég nagynak kell lenniük.
 
-A felület tervezésekor Nielsen tíz használhatósági heurisztikája közül négyre figyeltem különösen~\cite{nielsen-heuristics}. A rendszer állapotának láthatóságát az elnevezett előzménylépések szolgálják, a felhasználó szabadságát pedig az, hogy bármely korábbi állapotba visszaléphet. A megszokott konvenciókhoz igazodnak a más grafikus programokéval egyező billentyűkombinációk. A felismerés előnyben részesítése az emlékezéssel szemben a parancssávban valósul meg, amely mindig az adott helyzetben elérhető műveleteket mutatja.
+A felület tervezésekor Nielsen tíz használhatósági heurisztikája közül négyre figyeltem különösen~\cite{nielsen-heuristics}. A \textit{rendszer állapotának láthatóságát} az elnevezett előzménylépések szolgálják, a \textit{felhasználó szabadságát} pedig az, hogy bármely korábbi állapotba visszaléphet. A \textit{megszokott konvenciókhoz} igazodnak a más grafikus programokéval egyező billentyűkombinációk. A \textit{felismerés előnyben részesítése az emlékezéssel szemben} a parancssávban valósul meg, amely mindig az adott helyzetben elérhető műveleteket mutatja.
 
 Egy sérült vagy szándékosan rosszul összeállított fájl nem teheti használhatatlanná a szerkesztőt, ezért a betöltött projektfájlokat mezőnként ellenőrizni kell, és a hibás részeket el kell dobni. Végül a geometriai számításokat, az előzményeket és a fájlkezelést automatikus teszteknek kell ellenőrizniük.
 
 \section{A felhasználói felület terve}
 \label{sec:ui_design}
 
-A felület tervezésekor az elrendezésből indultam ki, amelyet \aref{fig:layout}. ábra mutat. A szerkesztő angol nyelvű, ezért az ábrán és a későbbi képernyőképeken angol feliratok láthatók, a szöveg pedig ezek magyar megfelelőit használja.
+A felület tervezésekor az elrendezésből indultam ki, amelyet \aref{fig:layout}. ábra mutat. A szerkesztő angol nyelvű, ezért az ábrán és a későbbi képernyőképeken angol feliratok láthatók, a dolgozat szövege pedig ezek magyar megfelelőit használja.
 
 \begin{figure}[!htbp]
 \centering
@@ -80,7 +80,7 @@ A jobb oldali tulajdonságsáv hét panelt nyit meg. A kitöltés és a körvona
 
 Keskeny kijelzőn a panel már nem férne el a rajz mellett. Ilyenkor a vászon alatt, alulról nyíló lapként jelenik meg, amelynek magassága a felső szélénél húzva állítható. Az eszköztár és a tulajdonságsáv a helyén marad, így nyitott panel mellett is elérhetők.
 
-A műveletek többféle úton érhetők el, de egyik sem csak rejtett úton. A gyakoriak a parancssávban vannak, a helyzethez kötöttek a jobb gombbal vagy hosszú érintéssel nyíló helyi menüben, és a menüsor mindegyiket tartalmazza. A helyi menü csak az adott helyzetben végrehajtható műveleteket sorolja fel, mert a letiltott menüpontok nehezebben áttekinthetővé tennék.
+A műveletek több módon is elérhetők, mindig közvetlenül, a felhasználói felületen keresztül. A gyakoriak a parancssávban vannak, a helyzethez kötöttek a jobb gombbal vagy hosszú érintéssel nyíló helyi menüben, és a menüsor mindegyiket tartalmazza. A helyi menü csak az adott helyzetben végrehajtható műveleteket sorolja fel, mert a letiltott menüpontok nehezebben áttekinthetővé tennék.
 
 \section{Technológiai választások}
 \label{sec:technologies}
@@ -99,11 +99,11 @@ A TypeScript használatát az adatmodell indokolja. Az alakzatok típusa egy kö
 
 A projekt a Vite fejlesztői környezetet használja. Fejlesztés közben a Vite a forrásfájlokat natív ES modulokként szolgálja ki, ezért egy módosítás után elég az érintett modult újratölteni~\cite{vite}. Az éles változatot is a Vite csomagolja statikus fájlokká, amelyeket bármely webszerver kiszolgálhat.
 
-A tesztek a Vitest keretrendszerrel futnak, amely a Vite beállításait használja, a komponensek teszteléséhez pedig a jsdom könyvtár ad böngészőszerű környezetet Node.js alatt~\cite{vitest,jsdom}. A böngészőben végzett ellenőrzések egy részét a Playwright eszközzel automatizáltam, amely programból vezérel egy Chromium böngészőt~\cite{playwright}.
+A tesztek a Vitest~\cite{vitest} keretrendszerrel futnak, amely a Vite beállításait használja, a komponensek teszteléséhez pedig a jsdom~\cite{jsdom} könyvtár ad böngészőszerű környezetet Node.js alatt. A böngészőben végzett ellenőrzések egy részét a Playwright eszközzel automatizáltam, amely programból vezérel egy Chromium böngészőt~\cite{playwright}.
 
 \subsection{Geometriai és betűtípus-könyvtárak}
 
-A geometriai algoritmusok többsége saját kód, három területen azonban külső könyvtárra támaszkodik a szerkesztő: a logikai műveleteknél és a vágásnál a paper.js, a körvonal útvonallá alakításánál és a foltecsetnél a Clipper, a szöveg útvonallá alakításánál pedig a fontkit könyvtárra. \Aref{tab:versions}. táblázat a fejlesztői eszközökkel együtt sorolja fel őket.
+A geometriai algoritmusok többsége saját kód, három területen azonban külső könyvtárra támaszkodik a szerkesztő: a logikai műveleteknél és a vágásnál a paper.js~\cite{paperjs}, a körvonal útvonallá alakításánál és a foltecsetnél a Clipper~\cite{clipper}, a szöveg útvonallá alakításánál pedig a fontkit~\cite{fontkit} könyvtárra. \Aref{tab:versions}. táblázat a fejlesztői eszközökkel együtt sorolja fel őket.
 
 \begin{table}[!ht]
 \caption{A felhasznált eszközök és könyvtárak}
@@ -125,32 +125,30 @@ woff2-encoder & 2.0.0 & WOFF2 betűtípusfájlok kibontása a fontkit számára 
 \end{tabular}
 \end{table}
 
-A sokszögek logikai műveleteire több klasszikus algoritmus ismert. Vatti söprővonalas algoritmusa tetszőleges, akár önmagukat metsző sokszögeket is kezel~\cite{vatti1992}, ennek továbbfejlesztése a Clipper könyvtár~\cite{clipper}. A Martínez-Rueda-Feito algoritmus $O((n+k)\log n)$ időben dolgozik, ahol $n$ a csúcsok, $k$ a metszéspontok száma~\cite{martinez2009}, ezt valósítja meg a polygon-clipping könyvtár~\cite{polygon-clipping}. A logikai műveletekhez a polygon-clipping és a clipper2-ts könyvtárat is megvizsgáltam. Mindkettő sokszögekkel dolgozik, a görbéket előbb rövid egyenes szakaszokra bontják. Két kör egyesítéséből így több száz sarokpontú alakzat lenne, amely kézzel már alig szerkeszthető. A paper.js a görbék metszéspontjait számolja ki, és az eredményt is görbékből építi fel~\cite{paperjs}. A körvonal útvonallá alakítása és a foltecset eredménye eleve sokszög, ezekhez a Clipper eltolási és egyesítési műveleteit használtam~\cite{clipper}.
-
-\newpage
+A sokszögek logikai műveleteire több klasszikus algoritmus ismert. Vatti söprővonalas algoritmusa tetszőleges, akár önmagukat metsző sokszögeket is kezel~\cite{vatti1992}, ennek továbbfejlesztése a Clipper könyvtár. A Martínez-Rueda-Feito algoritmus $O((n+k)\log n)$ időben dolgozik, ahol $n$ a csúcsok, $k$ a metszéspontok száma~\cite{martinez2009}, ezt valósítja meg a polygon-clipping könyvtár~\cite{polygon-clipping}. A logikai műveletekhez a polygon-clipping és a clipper2-ts könyvtárat is megvizsgáltam. Mindkettő sokszögekkel dolgozik, a görbéket előbb rövid egyenes szakaszokra bontják. Két kör egyesítéséből így több száz sarokpontú alakzat lenne, amely kézzel már alig szerkeszthető. A paper.js a görbék metszéspontjait számolja ki, és az eredményt is görbékből építi fel. A körvonal útvonallá alakítása és a foltecset eredménye eleve sokszög, ezekhez a Clipper eltolási és egyesítési műveleteit használtam.
 
 \section{Az alkalmazás rétegei}
 \label{sec:architecture}
 
 Az alkalmazás négy rétegből áll, ezeket és a köztük haladó adatfolyamot \aref{fig:architecture}. ábra mutatja.
 
-\begin{figure}[!ht]
+\begin{figure}
 \centering
 \begin{tikzpicture}[
-  layer/.style={draw, rounded corners=2pt, align=center, font=\small, minimum height=0.9cm, inner sep=4pt},
+  layer/.style={draw, rounded corners=2pt, align=center, font=\small, minimum height=0.8cm, inner sep=4pt},
   arr/.style={-{Stealth[length=2mm]}, thick},
   node distance=0.7cm and 0.8cm]
   \node[layer, minimum width=4.2cm] (ui) {Komponensek\\\footnotesize panelek, menük, parancssáv};
   \node[layer, minimum width=4.2cm, right=1.2cm of ui] (canvas) {Vászon (\texttt{Canvas.svelte})\\\footnotesize DOM-események};
-  \node[layer, minimum width=4.2cm, below=of canvas] (tools) {Eszközök (\texttt{tools/})\\\footnotesize \texttt{PointerInfo} feldolgozása};
-  \node[layer, minimum width=9.6cm, below=2.4cm of $(ui)!0.5!(canvas)$] (editor) {Szerkesztési műveletek (\texttt{stores/editor.ts})};
-  \node[layer, minimum width=9.6cm, below=of editor] (stores) {Állapot: dokumentum és előzmények, felület, nézet, ideiglenes elemek (\texttt{stores/})};
-  \node[layer, minimum width=9.6cm, below=of stores, fill=black!5] (utils) {Modell és tiszta függvények: alakzatok, útvonalak, SVG be- és kimenet (\texttt{utils/})};
+  \node[layer, minimum width=4.2cm, below=0.4cm of canvas] (tools) {Eszközök (\texttt{tools/})\\\footnotesize \texttt{PointerInfo} feldolgozása};
+  \node[layer, minimum width=9.6cm, below=2.5cm of $(ui)!0.5!(canvas)$] (editor) {Szerkesztési műveletek (\texttt{stores/editor.ts})};
+  \node[layer, minimum width=9.6cm, below=0.4cm of editor] (stores) {Állapot: dokumentum és előzmények, felület, nézet, ideiglenes elemek (\texttt{stores/})};
+  \node[layer, minimum width=9.6cm, below=0.3cm of stores, fill=black!5] (utils) {Modell és tiszta függvények: alakzatok, útvonalak, SVG be- és kimenet (\texttt{utils/})};
   \draw[arr] (canvas) -- (tools);
   \draw[arr] (ui.south) -- (ui.south |- editor.north);
   \draw[arr] (tools.south) -- (tools.south |- editor.north);
   \draw[arr] (editor) -- (stores);
-  \draw[arr, dashed] (stores.west) -- ++(-0.35,0) |- (ui.west);
+  \draw[arr, dashed] (stores.west) -- ++(-0.45,0) |- (ui.west);
 \end{tikzpicture}
 \caption{Az alkalmazás rétegei és az adatfolyam iránya; a szaggatott nyíl a store-ok értesítéseit jelöli}
 \label{fig:architecture}
@@ -160,11 +158,11 @@ A legalsó réteg az \texttt{utils} mappa. Itt van a dokumentum típusainak leí
 
 A dokumentumot csak az \texttt{editor} objektum műveletei módosítják. Ilyen az alakzat hozzáadása, a stílus módosítása, a csoportosítás, az igazítás, a logikai művelet és a beillesztés, és mindegyik egy elnevezett, visszavonható lépést hoz létre. A legfelső rétegben a rajzoló eszközök a vászontól kapják a mutató eseményeit, a komponensek pedig a felhasználó kattintásait. Mindkettő csak az \texttt{editor} műveleteit hívja, az eredményt pedig a store-okból olvassa vissza.
 
-Ennek az egyirányú adatfolyamnak két haszna van. Egy művelet ugyanúgy viselkedik, akár a panelről, akár a menüből, akár a helyi menüből indítják. Az eszközök és a műveletek emellett böngésző nélkül is tesztelhetők, mert egy eszköz kipróbálásához elég mesterséges mutatóeseményeket átadni neki, majd megvizsgálni a dokumentumot.
+Ennek az egyirányú adatfolyamnak két előnye van. Egy művelet ugyanúgy viselkedik, akár a panelről, akár a menüből, akár a helyi menüből indítják. Az eszközök és a műveletek emellett böngésző nélkül is tesztelhetők, mert egy eszköz kipróbálásához elég mesterséges mutatóeseményeket átadni neki, majd megvizsgálni a dokumentumot.
 
 \Aref{fig:move-sequence}. ábra ezt az adatfolyamot egy alakzat húzással történő mozgatásán mutatja be. A kijelölő eszköz a lenyomáskor előnézeti módba kapcsolja a dokumentumot, mozgatás közben csak az előnézetet frissíti, a felengedéskor pedig egyetlen elnevezett lépésként rögzíti a változást. A vászon a store-ra feliratkozva értesül minden módosításról, és ennek hatására rajzolja újra az alakzatokat.
 
-\begin{figure}[!htbp]
+\begin{figure}
 \centering
 \begin{tikzpicture}[
   font=\footnotesize,
@@ -173,32 +171,33 @@ Ennek az egyirányú adatfolyamnak két haszna van. Egy művelet ugyanúgy visel
   ret/.style={-{Stealth[length=1.8mm]}, dashed},
   lbl/.style={above, inner sep=1.5pt, font=\scriptsize},
   note/.style={font=\scriptsize, align=left, anchor=west}]
-  \foreach \x/\n/\t in {0/c/{Vászon}, 2.95/t/{Kijelölő eszköz}, 5.9/e/{\texttt{editor}}, 8.85/d/{\texttt{documentStore}}, 11.8/r/{\texttt{ShapeRenderer}}} {
+  \foreach \x/\n/\t in {0/c/{\texttt{Canvas}}, 2.95/t/{\texttt{select}}, 5.9/e/{\texttt{editor}}, 8.85/d/{\texttt{documentStore}}, 11.8/r/{\texttt{ShapeRenderer}}} {
     \node[head] (\n) at (\x,0) {\t};
-    \draw[black!45] (\n.south) -- (\x,-9.3);
+    \draw[black!45] (\n.south) -- (\x,-7.0);
   }
   % lenyomás
   \node[font=\scriptsize, align=right, anchor=east] at (-0.1,-1.3) {lenyomás};
   \draw[msg] (0,-1.3) -- node[lbl] {\texttt{down(info)}} (2.95,-1.3);
-  \draw[msg] (2.95,-1.75) -- node[lbl] {\texttt{beginDrag()}} (5.9,-1.75);
-  \draw[msg] (5.9,-2.2) -- node[lbl] {\texttt{beginPreview()}} (8.85,-2.2);
-  \node[note] at (8.9,-2.55) {a kiinduló állapot\\megjegyzése};
+  \draw[msg] (2.96,-1.3) -- node[lbl] {\texttt{beginDrag()}} (5.9,-1.3);
+  \draw[msg] (5.9,-1.3) -- node[lbl] {\texttt{beginPreview()}} (8.85,-1.3);
+  \node[note] at (8.91,-1.3) {a kiinduló állapot\\megjegyzése};
+  \node[note] at (8.91,-2.87) {az előnézet\\módosítása};
   % mozgatás ciklus
-  \draw[black!60, rounded corners=1pt] (-1.55,-3.2) rectangle (13.15,-6.55);
-  \node[anchor=north west, font=\scriptsize\itshape, inner sep=2pt] at (-1.55,-3.2) {ismétlődik};
-  \node[font=\scriptsize, align=right, anchor=east] at (-0.1,-4.0) {mozgatás};
-  \draw[msg] (0,-4.0) -- node[lbl] {\texttt{move(info)}} (2.95,-4.0);
-  \draw[msg] (2.95,-4.45) -- node[lbl] {\texttt{previewShapes(\dots)}} (5.9,-4.45);
-  \draw[msg] (5.9,-4.9) -- node[lbl] {\texttt{preview(\dots)}} (8.85,-4.9);
-  \draw[ret] (8.85,-5.45) -- node[lbl] {értesítés} (0,-5.45);
-  \draw[msg] (0,-6.05) -- node[lbl] {módosított alakzatok} (11.8,-6.05);
+  \draw[black!60, rounded corners=1pt, densely dotted] (-1.5,-2.15) rectangle (13.2,-4.86);
+  \node[anchor=north west, font=\scriptsize\itshape, inner sep=2pt, draw, fill=none, minimum width=43pt, minimum height=9pt, densely dotted] at (-1.51,-4.54) {ismétlődik  };
+  \node[font=\scriptsize, align=right, anchor=east] at (-0.1,-2.9) {mozgatás};
+  \draw[msg] (0,-2.9) -- node[lbl] {\texttt{move(info)}} (2.95,-2.9);
+  \draw[msg] (2.95,-2.9) -- node[lbl] {\texttt{previewShapes(\dots)}} (5.9,-2.9);
+  \draw[msg] (5.91,-2.9) -- node[lbl] {\texttt{preview(\dots)}} (8.85,-2.9);
+  \draw[ret] (8.86,-3.62) -- node[lbl] {értesítés} (0.01,-3.62);
+  \draw[msg] (0,-4.35) -- node[lbl] {módosított alakzatok} (11.8,-4.35);
   % felengedés
-  \node[font=\scriptsize, align=right, anchor=east] at (-0.1,-7.2) {felengedés};
-  \draw[msg] (0,-7.2) -- node[lbl] {\texttt{up(info)}} (2.95,-7.2);
-  \draw[msg] (2.95,-7.65) -- node[lbl] {\texttt{commitDrag('Move')}} (5.9,-7.65);
-  \draw[msg] (5.9,-8.1) -- node[lbl] {\texttt{commitPreview(\dots)}} (8.85,-8.1);
-  \node[note] at (8.9,-8.45) {új bejegyzés\\az előzményekben};
-  \draw[ret] (8.85,-9.0) -- node[lbl] {értesítés} (0,-9.0);
+  \node[font=\scriptsize, align=right, anchor=east] at (-0.1,-5.65) {felengedés};
+  \draw[msg] (0,-5.65) -- node[lbl] {\texttt{up(info)}} (2.95,-5.65);
+  \draw[msg] (2.95,-5.65) -- node[lbl] {\texttt{commitDrag('Move')}} (5.9,-5.65);
+  \draw[msg] (5.9,-5.65) -- node[lbl] {\texttt{commitPreview(\dots)}} (8.85,-5.65);
+  \node[note] at (8.9,-5.65) {új bejegyzés\\az előzményekben};
+  \draw[ret] (8.86,-6.36) -- node[lbl] {értesítés} (0.01,-6.36);
 \end{tikzpicture}
 \caption{Egy alakzat mozgatásának lépései a rétegeken át; a szaggatott nyilak a store értesítéseit jelölik}
 \label{fig:move-sequence}
@@ -207,7 +206,9 @@ Ennek az egyirányú adatfolyamnak két haszna van. Egy művelet ugyanúgy visel
 \section{Adatmodell}
 \label{sec:data_model}
 
-A dokumentum JSON formában tárolható adatszerkezet. Az alakzatok fáján kívül a lap méretét, a hátteret, egy opcionális háttérképet és a vonalzókból húzott segédvonalakat tartalmazza. Az alakzatok típusát a \texttt{type} mező adja meg, és ez dönti el, milyen geometriai adatok tartoznak hozzájuk. \Aref{tab:shape-types}. táblázat az alakzattípusokat és a kimenetben nekik megfelelő SVG-elemeket mutatja.
+A projektdokumentum JSON formában tárolható adatszerkezet. Az alakzatok fáján kívül a lap méretét, a hátteret, egy opcionális háttérképet és a vonalzókból húzott segédvonalakat tartalmazza.
+
+A következő tulajdonságok minden alakzattípusra definiáltak: egyedi azonosító, név, láthatóság, zárolás, átlátszóság, kitöltés, körvonal és vonalvastagság, vonalvég, sarok, szaggatási minta és forgatás. Az alakzatok típusát a \texttt{type} mező adja meg, és ez dönti el, milyen geometriai adatok tartoznak hozzájuk. \Aref{tab:shape-types}. táblázat az alakzattípusokat és a kimenetben nekik megfelelő SVG-elemeket mutatja.
 
 \begin{table}[!htbp]
 \caption{Az alakzattípusok, geometriai adataik és SVG megfelelőjük}
@@ -227,20 +228,20 @@ A dokumentum JSON formában tárolható adatszerkezet. Az alakzatok fáján kív
 \end{tabular}
 \end{table}
 
-Az alakzatok közös adatai az egyedi azonosító, név, láthatóság, zárolás, átlátszóság, kitöltés, körvonal és vonalvastagság, vonalvég, sarok, szaggatási minta és forgatás.
+Alább a komplexebb struktúrák megvalósítását tárgyaljuk részletesebben.
 
-\paragraph{Útvonalak.} A szerkesztő az útvonalat csomópontok listájaként tárolja, az SVG \texttt{d} attribútumának parancsait csak importáláskor és exportáláskor használja. Egy csomópontnak van helye, opcionális bejövő és kimenő fogantyúja, és egy jelzője arról, hogy sima-e. Két csomópont között egyenes szakasz van, ha a köztük lévő oldalon egyiknek sincs fogantyúja, különben harmadfokú Bézier-görbe. Ebben a formában minden csomópont és fogantyú közvetlenül megfogható. Az SVG másodfokú görbéit és íveit az importáló harmadfokú görbékké alakítja.
+\paragraph{Útvonalak.} A szerkesztő az útvonalat csomópontok listájaként tárolja, az SVG \texttt{d} attribútumának parancsait csak importáláskor és exportáláskor használja. Egy csomópontnak van helye, opcionális bejövő és kimenő fogantyúja, és egy jelzője arról, hogy sima-e. Két csomópont között egyenes szakasz van, ha az egymás felé néző oldalon egyiknek sincs fogantyúja, különben harmadfokú Bézier-görbe. Ebben a formában minden csomópont és fogantyú közvetlenül megfogható. Az SVG másodfokú görbéit és íveit az importáló harmadfokú görbékké alakítja.
 
 \paragraph{Színek és színátmenetek.} A kitöltés és a körvonal értéke egy karakterlánc. Lehet \texttt{none}, egy \texttt{\#rrggbb} színkód vagy átlátszósággal együtt \texttt{\#rrggbbaa}, illetve egy színátmenet leírása. Egy lineáris átmenet például \texttt{lg:90;\#1e3c72@0,\#f7b267@100} alakú. Az első szám a szög fokban, utána a színek következnek a helyükkel együtt, százalékban. A színek és a színátmenetek így ugyanazon a kódon haladnak át stílus másolásakor, összehasonlításkor vagy visszavonáskor. Ha a színátmenet külön objektum lenne, ezeket a műveleteket két változatban kellene megírni. Exportáláskor minden színátmenet egy \texttt{<defs>} elembe kerül, és az alakzat \texttt{url()} hivatkozással használja.
 
-\paragraph{Csoportok.} A csoport forgatása és átlátszósága a csoport egészére vonatkozik, a tagok koordinátái pedig úgy értendők, mintha a csoport nem lenne elforgatva. A felhasználó beléphet egy csoportba, ekkor a kijelölés és a szerkesztés a csoport tagjaira vonatkozik.
+\paragraph{Csoportok.} A csoport forgatása és átlátszósága a csoport egészére vonatkozik, a tagok koordinátái pedig úgy értendők, mintha a csoport nem lenne elforgatva. A felhasználó beléphet egy csoportba, ekkor a kijelölés és a szerkesztés a csoporton belül, annak tagjaira vonatkozik.
 
 \paragraph{Forgatás és forgatási középpont.} Az alakzat forgatása fokban, a saját, el nem forgatott határoló téglalapjának közepe körül értendő, az exportált fájlban ebből lesz a \texttt{rotate(szög cx cy)} transzformáció. Ehhez járul egy opcionális forgatási középpont, amely a határoló téglalaphoz viszonyított arányként adja meg, mely pont körül forog az alakzat a szerkesztőben. A forgatási középpont csak szerkesztési segédlet. Forgatáskor a szerkesztő a szöget és a pozíciót együtt módosítja úgy, hogy a kijelölt pont a helyén maradjon, a tárolt forgatás pedig mindig a téglalap közepe körüli marad. Erre a feltevésre épül a határoló téglalap, a méretezés, a tükrözés és az export minden számítása, egy valódi, tetszőleges forgatási középpont mindegyiket bonyolultabbá tenné.
 
 \section{Az előzmények kezelése}
 \label{sec:history_design}
 
-A visszavonásra két elterjedt tervezési minta létezik~\cite{gof}. A \textit{Command} minta minden műveletet olyan objektumként tárol, amely a végrehajtást és a visszacsinálást is ismeri. Berlage ezt a megoldást grafikus felületekre a tetszőleges korábbi lépés visszavonásáig, a szelektív visszavonásig fejlesztette tovább~\cite{berlage1994}. A \textit{Memento} minta ehelyett az állapotról készít pillanatképet. A szerkesztő a második megoldást követi. A dokumentum adatai sosem módosulnak helyben, minden művelet új dokumentumot készít, amely a változatlan alakzatokat megosztja az előzővel. Egy pillanatkép ezért csak a megváltozott alakzatok helyét foglalja, a visszavonás pedig egyetlen hivatkozás cseréje. Ez a perzisztens adatszerkezetek elve, amelyekben a módosítás új változatot hoz létre, a régi változatok elérhetők maradnak, és a változatok a közös részeiket megosztják~\cite{driscoll1989,okasaki1998}. A legfontosabb előnye, hogy egy új művelethez nem kell külön visszacsináló kódot írni, és így ilyen kód hibájából sem állhat vissza rossz állapot.
+A visszavonásra két elterjedt tervezési minta létezik~\cite{gof}. A \textit{Command} minta minden műveletet olyan objektumként tárol, amely a végrehajtást és a visszavonást is ismeri. Berlage ezt a megoldást grafikus felületekre a tetszőleges korábbi lépés visszavonásáig, a szelektív visszavonásig fejlesztette tovább~\cite{berlage1994}. A \textit{Memento} minta ehelyett az állapotról készít pillanatképet~\cite{okasaki1998}. A Solid SVG szerkesztő a második megoldást követi. A dokumentum adatai sosem módosulnak helyben, minden művelet új dokumentumot készít, amely a változatlan alakzatokat megosztja az előzővel. Egy pillanatkép ezért csak a megváltozott alakzatok memóriaterületét foglalja, a visszavonás pedig egyetlen hivatkozás cseréje. Ez a perzisztens adatszerkezetek~\cite{driscoll1989} elve, amelyekben a módosítás új változatot hoz létre, a régi változatok elérhetők maradnak, és a változatok a közös részeiket megosztják. A legfontosabb előnye, hogy egy új művelethez nem kell külön visszavonó kódot írni, és így ilyen kód hibájából sem állhat vissza rossz állapot.
 
 Az előzmények a korábbi állapotokból, a jelenlegi állapotból és a visszavont, de megismételhető állapotokból álló idővonalat alkotnak. Minden bejegyzés a nevében szereplő művelet utáni állapotot tárolja. Az előzmények panelen egy bejegyzésre kattintva tehát pontosan az a rajz jelenik meg, amelyet a bejegyzés neve leír. Egy új művelet törli a megismételhető állapotokat, és a szerkesztő legfeljebb kétszáz lépést őriz meg.
 
@@ -249,7 +250,7 @@ Egy felhasználói művelet néha sok egymás utáni módosításból áll. Egy 
 \section{Az eszközök közös felülete}
 \label{sec:tool_design}
 
-Minden eszköz ugyanazt a felületet valósítja meg, amelyet \aref{lst:tool}. programkód mutat. A vászon a böngésző mutatóeseményeit dokumentumkoordinátákká alakítja, közben figyelembe veszi a nagyítást, a belépett csoportot és az illesztést, majd az aktuális eszköznek adja tovább. A \texttt{target} mezőből az eszköz azt is megtudja, mi van a mutató alatt.
+Minden eszköz ugyanazt az interfészt implementálja, amelyet \aref{lst:tool}. programkód mutat. A vászon a böngésző mutatóeseményeit dokumentumkoordinátákká alakítja, közben figyelembe veszi a nagyítást, a belépett csoportot és az illesztést, majd az aktuális eszköznek adja tovább. A \texttt{target} mezőből az eszköz azt is megtudja, mi van a mutató alatt.
 
 \begin{lstlisting}[style=TS, caption={Az eszközök közös felülete (\texttt{tools/types.ts}, rövidítve)}, label=lst:tool]
 interface PointerInfo {
@@ -277,8 +278,8 @@ A toll és a körív eszköz egy közös, éppen rajzolt útvonalon dolgozik. Ra
 \section{Tárolás és fájlformátumok}
 \label{sec:storage_design}
 
-A szerkesztő a rajzot, a beállításokat és az exportált fájlokat külön kezeli. A rajz projektfájlba menthető, amely egy formátumazonosítót, egy verziószámot és magát a dokumentumot tartalmazó JSON-dokumentum. Az SVG csak saját kiterjesztésekkel őrizhetné meg mindazt, amire a szerkesztőnek szüksége van, például az alakzatok zárolását, a segédvonalakat vagy a forgatási középpontokat. Az automatikus mentés ugyanezt a formátumot írja a böngésző helyi tárolójába.
+A szerkesztő a rajzot, a beállításokat és az exportált fájlokat külön kezeli. A rajz projektfájlba menthető, amely egy formátumazonosítót, egy verziószámot és magát a dokumentumot tartalmazó JSON-dokumentum. Az SVG csak saját kiterjesztésekkel őrizhetné meg mindazt, amire a szerkesztőnek szüksége van, például az alakzatok zárolását, a segédvonalakat vagy a forgatási középpontokat. Az automatikus mentés ugyanezt a JSON-alapú formátumot írja a böngésző helyi tárolójába.
 
 A rács, az illesztés, a panelek mérete és a hasonló beállítások azt írják le, hogyan dolgozik a felhasználó, és nem azt, amit rajzolt. Ezek ezért a böngésző helyi tárolójába kerülnek, és egy projektfájl bárhol megnyitva ugyanúgy néz ki. Kivételt a segédvonalak jelentenek, mert azok egy adott rajzhoz tartoznak, ezért a projektfájlba kerülnek. Az exportált SVG szabványos, a szerkesztő saját adatai nem szerepelnek benne. A raszteres képek az exportált SVG-ből készülnek, amelyet a szerkesztő a böngésző vásznára rajzol.
 
-A böngésző helyi tárolójának mérete eredetenként korlátozott~\cite{whatwg-webstorage,mdn-storage}, egy nagy beágyazott képet tartalmazó rajz el is érheti ezt a korlátot. Ha az automatikus mentés nem sikerül, a szerkesztő figyelmeztet, és a projektfájlba mentés továbbra is elérhető.
+A böngésző helyi tárolójának mérete eredetenként korlátozott~\cite{mdn-storage, whatwg-webstorage}, egy nagy beágyazott képet tartalmazó rajz el is érheti ezt a korlátot. Ha az automatikus mentés nem sikerül, a szerkesztő figyelmeztet, és a projektfájlba mentés továbbra is elérhető.

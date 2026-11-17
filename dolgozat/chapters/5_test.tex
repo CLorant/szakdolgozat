@@ -34,7 +34,7 @@ A tesztek a Vitest keretrendszerrel futnak~\cite{vitest}, a \texttt{tests} mapp�
 \end{tabular}
 \end{table}
 
-A forráskódban 409 teszteset szerepel. Futtatáskor a keretrendszer 447 tesztet jelez, mert a véletlenszerű tesztek egyik tesztesete negyven különböző kezdőértékkel fut le. A teljes tesztkészlet egy átlagos fejlesztői gépen 30-40 másodperc alatt fut le, és minden módosítás után könnyen lefuttatható. \Aref{tab:req-tests}. táblázat azt mutatja, mely tesztfájlok ellenőrzik \aref{tab:requirements}. táblázat követelményeit.
+A forráskódban 409 teszteset szerepel. Futtatáskor a keretrendszer 447 tesztet jelez, mert az egyik véletlenszerű teszteset feltételes: alapvetően negyven véletlenszerű seed-el kerül végrehajtásra, viszont van lehetőség egy adott seed-el is paraméterezni. A teljes tesztkészlet egy számítógépen körülbelül 30-40 másodperc alatt fut le, és minden módosítás után könnyen lefuttatható. \Aref{tab:req-tests}. táblázat azt mutatja, mely tesztfájlok ellenőrzik \aref{tab:requirements}. táblázat követelményeit.
 
 \begin{table}[!htbp]
 \caption{A funkcionális követelmények és az őket ellenőrző tesztfájlok}
@@ -109,7 +109,7 @@ A kézi tesztelés során a felület minden részét végigpróbáltam, és a ta
 \textbf{Azonosító} & \textbf{A teszt által ellenőrzött viselkedés} \\ \hline
 B-01 & Az exportált SVG jól formált XML, és nem függ külső betűtípustól. \\ \hline
 B-02 & Egy csomópont húzása közben a csomópontok és a fogantyúk a görbével együtt mozognak. \\ \hline
-B-03 & A toll eszközzel az első pontra lenyomva és húzva kattintásként viselkedik, a későbbi pontok viszont sima csomóponttá húzhatók. \\ \hline
+B-03 & A toll eszközzel az első pontra lenyomva és húzva kattintásként viselkedik, a későbbi pontok viszont sima csomópontok, tehát egyenesek helyett görbék húzhatók. \\ \hline
 B-04 & Az útvonal bezárásának előnézete pontosan azt az alakzatot mutatja, amelyet a kattintás létrehoz. \\ \hline
 B-05 & Rajzolás és kijelölés után a mozgatás, a méretezés és a forgatás a kijelölő keretet is mozgatja. \\ \hline
 B-06 & A kijelölés megszüntetése, legyen az kattintás az üres vászonra, Esc vagy dupla kattintás, eltünteti a kijelölő keretet. \\ \hline
@@ -119,7 +119,7 @@ B-06 & A kijelölés megszüntetése, legyen az kattintás az üres vászonra, E
 \section{Böngészős ellenőrzés és a kész alkalmazás mérete}
 \label{sec:browser_check}
 
-A fejlesztés során az alkalmazást folyamatosan egy Chromium-alapú asztali böngészőben használtam, a kézi tesztelés is ott történt. A jsdom által nem vizsgálható viselkedés, például a valódi elrendezés, a szöveg mérése, a raszteres export és az érintéses mozdulatok ellenőrzésének egy részét a Playwright eszközzel szkriptekbe foglaltam~\cite{playwright}. A Playwright programból vezérel egy Chromium böngészőt, asztali és telefonos képernyőméretre is beállítható, és érintéses eseményeket is küldhet. A dolgozat képernyőképei is így készültek. A felületet Firefox böngészőben is kipróbáltam, ott is helyesen működik, Safari böngészőben azonban nem teszteltem. A helyi betűtípusok elérése a Chromium-alapú böngészőkre korlátozódik, ezt \aref{sec:text_impl}. szakasz tárgyalja.
+A fejlesztés során az alkalmazást folyamatosan egy Chromium-alapú asztali böngészőben használtam, a kézi tesztelés is ott történt. A jsdom által nem vizsgálható viselkedés, például a valódi elrendezés, a szöveg mérése, a raszteres export és az érintéses mozdulatok ellenőrzésének egy részét a Playwright eszközzel szkriptekbe foglaltam~\cite{playwright}. A Playwright programból vezérel egy Chromium böngészőt, asztali és telefonos képernyőméretre is beállítható, és érintéses eseményeket is küldhet. A felületet Firefox böngészőben is kipróbáltam, ott is helyesen működik, Safari böngészőben azonban nem teszteltem. A helyi betűtípusok elérése a Chromium-alapú böngészőkre korlátozódik, ezt \aref{sec:text_impl}. szakasz tárgyalja.
 
 Az éles változatot a Vite csomagolja. A keletkező fő JavaScript-fájlokat \aref{tab:bundle}. táblázat sorolja fel. A nagy könyvtárak dinamikus importtal külön fájlba kerülnek, és csak az első használatukkor töltődnek be: a paper.js az első logikai műveletnél vagy vágásnál, a fontkit és a WOFF2 kibontó az első útvonallá alakításnál. Az alkalmazás indulásakor ezért csak a fő fájlt kell letölteni, amely tömörítve körülbelül 160 kB.
 
